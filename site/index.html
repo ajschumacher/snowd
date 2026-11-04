@@ -699,10 +699,10 @@ function select(id, fromMap){
   S.sel = id;
   S.open = id;
   render();
-  if(fromMap){
-    var row = document.querySelector('tr.row[data-id="'+id+'"]');
-    if(row) row.scrollIntoView({behavior:"smooth", block:"center"});
-  } else if(markers[id]){
+  // A map click deliberately does NOT move the viewport. The row still pins to
+  // the top of the table, but scrolling the page there made tapping several
+  // markers in a row unusable, especially on a phone.
+  if(!fromMap && markers[id]){
     map.panTo(markers[id].getLatLng(), {animate:true});
     markers[id].openTooltip();
   }
@@ -772,11 +772,33 @@ bind("theme", "click", function(){
 window.addEventListener("resize", function(){ if(S.open) drawCharts(S.open); });
 
 /* ------------------------------------------------ boot */
+/** Freshest observation in the payload.
+ *
+ *  Prefers the top-level key, but falls back to scanning the observations so a
+ *  browser holding an older cached data.js — one written before the key was
+ *  named `data_as_of` — still shows a real time instead of a dash. The data is
+ *  always there, the key is just a convenience.
+ */
+function freshest(){
+  if(D.data_as_of) return D.data_as_of;
+  if(D.generated_at) return D.generated_at;
+  var best = "";
+  var seasons = D.snow || {};
+  Object.keys(seasons).forEach(function(s){
+    var per = seasons[s] || {};
+    Object.keys(per).forEach(function(id){
+      (per[id] || []).forEach(function(o){ if(o && o.t && o.t > best) best = o.t; });
+    });
+  });
+  return best;
+}
+
 function setSub(){
   var rep = D.resorts.filter(function(r){ return reporting(r.id); }).length;
   var el = document.getElementById("sub");
+  var asOf = freshest();
   el.textContent = D.resorts.length + " Epic Pass resorts · " + rep + " reporting snow for " +
-    S.season + " · data as of " + (D.data_as_of ? ago(D.data_as_of) : "–");
+    S.season + " · data as of " + (asOf ? ago(asOf) : "no data yet");
   var noSrc = D.resorts.filter(function(r){ return r.src !== "vail_cms"; }).length;
   document.getElementById("foot").innerHTML =
     "Season <strong>"+esc(S.season)+"</strong>. "+
