@@ -393,8 +393,47 @@ function drawLegend(){
 
 /* ------------------------------------------------ map */
 var map, layer, markers = {};
+
+/** Trackpad pinch-to-zoom over the map, on desktop.
+ *
+ *  A trackpad pinch reaches the page as a wheel event with ctrlKey set, which
+ *  the browser would otherwise spend on zooming the whole page. We claim that
+ *  one case while the pointer is over the map and spend it on the map instead.
+ *
+ *  Plain two-finger scrolling (no ctrlKey) is deliberately left alone, so
+ *  scrolling past the map still scrolls the page rather than being swallowed —
+ *  which is why Leaflet's own scrollWheelZoom stays off.
+ *
+ *  Touch pinch on phones is Leaflet's own touchZoom and is untouched by this.
+ */
+function enablePinchZoom(){
+  var el = map.getContainer();
+  var accum = 0, pending = null, at = null;
+
+  el.addEventListener("wheel", function(e){
+    if(!e.ctrlKey) return;              // ordinary scroll — let the page have it
+    e.preventDefault();                 // ...otherwise the browser zooms the page
+    // deltaY is small and arrives in bursts; accumulate and apply once a frame.
+    // Zoom moves in whole levels: fractional zoom (zoomSnap 0) renders badly
+    // here, because at a fractional level the whole world can end up narrower
+    // than the map container and the tiles leave grey bars down the sides.
+    // The leftover fraction is kept, so a slow pinch still feels continuous.
+    accum += -e.deltaY * 0.015;
+    at = map.mouseEventToContainerPoint(e);
+    if(pending) return;
+    pending = requestAnimationFrame(function(){
+      pending = null;
+      var steps = accum > 0 ? Math.floor(accum) : Math.ceil(accum);
+      if(!steps) return;
+      accum -= steps;
+      var z = Math.max(map.getMinZoom(), Math.min(map.getMaxZoom(), map.getZoom() + steps));
+      map.setZoomAround(at, z, {animate:false});
+    });
+  }, {passive:false});                  // passive:false is required to preventDefault
+}
 function initMap(){
   map = L.map("map", {scrollWheelZoom:false, worldCopyJump:true});
+  enablePinchZoom();
   L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
     attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     maxZoom:17
