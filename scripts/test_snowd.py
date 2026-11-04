@@ -149,6 +149,36 @@ def t_dedup():
           snowd._snow_identity(n1) != snowd._snow_identity(n4), True)
 
 
+# ---------------------------------------------------------------- forecast churn
+def t_forecast_payload():
+    """A re-fetch must not rewrite a forecast row that has not actually moved.
+
+    Otherwise the CI job commits every few hours with nothing but a new
+    observed_at in the diff.
+    """
+    base = {c: "" for c in snowd.FORECAST_COLUMNS}
+    base.update({"resort_id": "vail", "forecast_date": "2026-11-06", "season": "2026-27",
+                 "observed_at": "2026-11-04T12:00:00Z", "high_f": "63.0",
+                 "conditions": "Cloudy", "wind_dir": "WSW"})
+    later = dict(base, observed_at="2026-11-04T20:00:00Z")      # same forecast
+    moved = dict(later, conditions="Scattered T-Storms")        # genuinely changed
+
+    check("same forecast ignores fetch time",
+          snowd._fc_payload(base), snowd._fc_payload(later))
+    check("changed conditions is a different payload",
+          snowd._fc_payload(base) != snowd._fc_payload(moved), True)
+    check("observed_at excluded from payload",
+          "observed_at" not in [c for c in snowd.FORECAST_COLUMNS
+                                if str(base.get(c, "")) in snowd._fc_payload(base)
+                                and c == "observed_at"], True)
+
+    # values arriving as floats must compare equal to the strings read back from CSV
+    from_csv = dict(base, high_f="63.0")
+    from_fetch = dict(base, high_f=63.0)
+    check("float and CSV-string compare equal",
+          snowd._fc_payload(from_csv), snowd._fc_payload(from_fetch))
+
+
 # ---------------------------------------------------------------- registry
 def t_registry():
     rs = snowd.load_resorts()
@@ -175,7 +205,7 @@ def t_registry():
 
 def main() -> int:
     for fn in (t_seasons, t_timestamps, t_numbers, t_extraction,
-               t_parse_page, t_dedup, t_registry):
+               t_parse_page, t_dedup, t_forecast_payload, t_registry):
         fn()
     if FAILED:
         print(f"FAILED ({len(FAILED)}):")

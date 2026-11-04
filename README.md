@@ -137,8 +137,18 @@ day/night snowfall ranges in both units, conditions and wind.
 A snow row is "the same row" when it carries the same resort and the same
 publish timestamp, so re-running the fetch never appends a second copy of an
 unchanged report. Where a resort publishes no timestamp, the measured values
-plus the fetch date are used instead. Forecast rows are keyed on resort +
-target date + fetch date, latest write winning.
+plus the fetch date are used instead.
+
+Forecast rows are keyed on resort + target date + fetch date. A re-fetch on the
+same day replaces that day's row only when the forecast has actually moved —
+compared on the forecast's own fields, ignoring `observed_at`. Without that,
+every run would rewrite all ~180 rows with nothing but a new fetch timestamp,
+and the four-hourly CI job would commit noise six times a day.
+
+For the same reason `site/data.js` carries `data_as_of` (the freshest
+observation in the data) rather than a "generated now" stamp: it is a pure
+function of the CSVs, so it only changes when they do. `data/last_run.json` is
+a local run log and is gitignored — the CI logs carry the same information.
 
 ### Seasons
 
@@ -150,7 +160,8 @@ future season needs no code change — just keep running the fetch.
 ## Layout
 
 ```
-data/      resorts.csv, snow_<season>.csv, forecast_<season>.csv, last_run.json
+data/      resorts.csv, snow_<season>.csv, forecast_<season>.csv
+           last_run.json (local run log, gitignored)
 scripts/   snowd.py (library), fetch.py (CLI), build_site_data.py
 site/      index.html (viewer), data.js (generated)
 ```

@@ -776,7 +776,7 @@ function setSub(){
   var rep = D.resorts.filter(function(r){ return reporting(r.id); }).length;
   var el = document.getElementById("sub");
   el.textContent = D.resorts.length + " Epic Pass resorts · " + rep + " reporting snow for " +
-    S.season + " · data built " + ago(D.generated_at);
+    S.season + " · data as of " + (D.data_as_of ? ago(D.data_as_of) : "–");
   var noSrc = D.resorts.filter(function(r){ return r.src !== "vail_cms"; }).length;
   document.getElementById("foot").innerHTML =
     "Season <strong>"+esc(S.season)+"</strong>. "+

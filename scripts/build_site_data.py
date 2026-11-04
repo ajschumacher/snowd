@@ -59,7 +59,13 @@ def discover_seasons() -> list[str]:
 def main() -> int:
     resorts = load_resorts()
     out = {
-        "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        # Deliberately NOT wall-clock time. This file is committed by CI every
+        # few hours; a "generated now" stamp would make it differ on every run
+        # and produce a commit even when no resort had published anything new.
+        # Derived from the data, the file is a pure function of the CSVs, so it
+        # changes only when the data does. It also answers the more useful
+        # question: how fresh are these numbers, not when did a script last run.
+        "data_as_of": "",
         "seasons": discover_seasons(),
         "resorts": [
             {
@@ -73,7 +79,6 @@ def main() -> int:
         ],
         "snow": {},
         "forecast": {},
-        "status": {},
     }
 
     for season in out["seasons"]:
@@ -123,12 +128,15 @@ def main() -> int:
             v.sort(key=lambda x: x["date"])
         out["forecast"][season] = fper
 
-    last_run = DATA / "last_run.json"
-    if last_run.exists():
-        try:
-            out["status"] = json.loads(last_run.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            pass
+    # Freshest observation anywhere in the data.
+    stamps = [
+        obs["t"]
+        for season in out["snow"].values()
+        for rows in season.values()
+        for obs in rows
+        if obs.get("t")
+    ]
+    out["data_as_of"] = max(stamps) if stamps else ""
 
     SITE.mkdir(parents=True, exist_ok=True)
     target = SITE / "data.js"

@@ -444,20 +444,44 @@ def append_snow(rows: list[dict], season: str) -> tuple[int, int]:
     return len(added), len(existing) + len(added)
 
 
+def _fc_payload(row: dict) -> tuple:
+    """A forecast row's content, ignoring when we happened to fetch it."""
+    return tuple(str(row.get(c, "")) for c in FORECAST_COLUMNS if c != "observed_at")
+
+
 def append_forecast(rows: list[dict], season: str) -> tuple[int, int]:
-    """One forecast row per resort / target date / fetch day; latest wins."""
+    """One forecast row per resort / target date / fetch day; latest wins.
+
+    A re-fetch on the same day replaces that day's row only when the forecast
+    itself has moved. Were it replaced unconditionally, every run would rewrite
+    the file with nothing but a new `observed_at` — which, under a CI job that
+    commits what changed, means a commit every few hours saying nothing.
+    """
     path = DATA / f"forecast_{season}.csv"
     existing = _read_csv(path)
     index: dict[tuple, dict] = {}
     order: list[tuple] = []
-    for r in existing + rows:
+    for r in existing:
         key = (r["resort_id"], r["forecast_date"], (r.get("observed_at") or "")[:10])
         if key not in index:
             order.append(key)
         index[key] = r
+
     before = len(existing)
+    changed = False
+    for r in rows:
+        key = (r["resort_id"], r["forecast_date"], (r.get("observed_at") or "")[:10])
+        prior = index.get(key)
+        if prior is not None and _fc_payload(prior) == _fc_payload(r):
+            continue  # same forecast, already recorded — keep the first sighting
+        if prior is None:
+            order.append(key)
+        index[key] = r
+        changed = True
+
+    if not changed:
+        return 0, before
     merged = [index[k] for k in order]
     merged.sort(key=lambda r: (r.get("observed_at", ""), r.get("resort_id", ""), r.get("forecast_date", "")))
-    if len(merged) != before or rows:
-        _write_csv(path, FORECAST_COLUMNS, merged)
+    _write_csv(path, FORECAST_COLUMNS, merged)
     return len(merged) - before, len(merged)
