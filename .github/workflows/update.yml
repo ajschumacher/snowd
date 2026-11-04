@@ -1,0 +1,76 @@
+name: Update snow data and deploy site
+
+on:
+  schedule:
+    # Every 4 hours at :45 — resorts post their morning report around
+    # 12:30-14:00 UTC, so the 12:45 run picks it up promptly and nothing is
+    # ever more than four hours stale. Extra runs are free: rows de-duplicate
+    # on each resort's own publish timestamp, so a run with no new report
+    # writes nothing and commits nothing.
+    - cron: "45 */4 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write   # commit new data rows
+  pages: write      # publish the site
+  id-token: write   # required by deploy-pages
+
+# Never let two runs fetch and push at once.
+concurrency:
+  group: snowd-update
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Self-checks
+        run: python scripts/test_snowd.py
+
+      - name: Fetch snow reports
+        run: python scripts/fetch.py
+
+      - name: Commit new rows
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data site/data.js
+          if git diff --staged --quiet; then
+            echo "No new data to commit."
+          else
+            git commit -m "data: snow reports $(date -u +'%Y-%m-%d %H:%M') UTC"
+            # another run may have landed while we were fetching
+            git pull --rebase --autostash origin main
+            git push
+          fi
+
+  # Deploys in the same run as the fetch on purpose: a commit pushed with
+  # GITHUB_TOKEN does not trigger workflows, so a separate push-triggered
+  # Pages workflow would never see the data the fetch just committed.
+  deploy:
+    needs: fetch
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main   # pick up the row the fetch job just committed
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

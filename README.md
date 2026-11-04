@@ -3,6 +3,8 @@
 Tracks snow conditions across the Epic Pass resorts over a season, stores the
 history as CSV in this repo, and ships a static map + table viewer.
 
+**Live site: <https://ajschumacher.github.io/snowd/>** — updated every four hours.
+
 ![resorts](https://img.shields.io/badge/resorts-59-blue) ![source](https://img.shields.io/badge/source-resort%20snow%20reports-blue)
 
 ## Why this exists
@@ -86,15 +88,21 @@ python3 -m http.server 8777 --directory site
 `site/data.js` rather than a `fetch()` of the CSVs, which browsers block over
 `file://`.
 
-### Running it daily
+### Keeping it updated
 
-`.github/workflows/fetch.yml` runs the fetch at 14:00 UTC and commits new rows.
-Nothing depends on it being punctual: rows are keyed on each resort's own
-publish timestamp, so running twice in an hour adds nothing and skipping three
-days just leaves a gap.
+`.github/workflows/update.yml` runs every four hours (at :45), commits any new
+rows, and redeploys the site. Nothing depends on it being punctual: rows are
+keyed on each resort's own publish timestamp, so a run that finds no fresh
+report writes nothing and commits nothing, and skipping three days just leaves
+a gap.
+
+The fetch and the Pages deploy are deliberately in the **same** workflow run. A
+commit pushed with `GITHUB_TOKEN` does not trigger other workflows, so a
+separate push-triggered Pages workflow would never see the data the fetch had
+just committed.
 
 To run it locally instead, any scheduler works — e.g. a launchd agent or
-`0 7 * * * cd /path/to/snowd && /usr/bin/python3 scripts/fetch.py`.
+`45 */4 * * * cd /path/to/snowd && /usr/bin/python3 scripts/fetch.py`.
 
 ## Data
 
