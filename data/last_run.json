@@ -1,0 +1,242 @@
+{
+ "observed_at": "2026-11-04T19:24:29Z",
+ "resorts": {
+  "afton-alps": {
+   "note": "page served but no snowReportData (likely pre-season)",
+   "status": "no_report"
+  },
+  "alpine-valley-oh": {
+   "note": "page served but no snowReportData (likely pre-season)",
+   "status": "no_report"
+  },
+  "andermatt-sedrun-disentis": {
+   "note": "no data source configured yet",
+   "status": "no_source"
+  },
+  "attitash": {
+   "note": "page served but no snowReportData (likely pre-season)",
+   "status": "no_report"
+  },
+  "beaver-creek": {
+   "note": "",
+   "status": "ok"
+  },
+  "boston-mills-brandywine": {
+   "note": "page served but no snowReportData (likely pre-season)",
+   "status": "no_report"
+  },
+  "breckenridge": {
+   "note": "",
+   "status": "ok"
+  },
+  "crans-montana": {
+   "note": "no data source configured yet",
+   "status": "no_source"
+  },
+  "crested-butte": {
+   "note": "",
+   "status": "ok"
+  },
+  "crotched": {
+   "note": "page served but no snowReportData (likely pre-season)",
+   "status": "no_report"
+  },
+  "falls-creek": {
+   "note": "no data source configured yet",
+   "status": "no_source"
+  },
+  "fernie": {
+   "note": "no data source configured yet",
+   "status": "no_source"
+  },
+  "hakuba-valley": {
+   "note": "no data source configured yet",
+   "status": "no_source"
+  },
+  "heavenly": {
+   "note": "",
+   "status": "ok"
+  },
+  "hidden-valley-mo": {
+   "note": "page served but no snowReportData (likely pre-season)",
+   "status": "no_report"
+  },
+  "hidden-valley-pa": {
+   "note": "page served but no snowReportData (likely pre-season)",
+   "status": "no_report"
+  },
+  "hunter": {
+   "note": "",
+   "status": "ok"
+  },
+  "jack-frost-big-boulder": {
+   "note": "page served but no snowReportData (likely pre-season)",
+   "status": "no_report"
+  },
+  "keystone": {
+   "note": "",
+   "status": "ok"
+  },
+  "kicking-horse": {
+   "note": "no data source configured yet",
+   "status": "no_source"
+  },
+  "kimberley": {
+   "note": "no data source configured yet",
+   "status": "no_source"
+  },
+  "kirkwood": {
+   "note": "",
+   "status": "ok"
+  },
+  "kitzsteinhorn": {
+   "note": "no data source configured yet",
+   "status": "no_source"
+  },
+  "laurel-mountain": {
+   "note": "page served but no snowReportData (likely pre-season)",
+   "status": "no_report"
+  },
+  "les-3-vallees": {
+   "note": "no data source configured yet",
+   "status": "no_source"
+  },
+  "liberty": {
+   "note": "page served but no snowReportData (likely pre-season)",
+   "status": "no_report"
+  },
+  "mad-river": {
+   "note": "page served but no snowReportData (likely pre-season)",
+   "status": "no_report"
+  },
+  "mont-sainte-anne": {
+   "note": "no data source configured yet",
+   "status": "no_source"
+  },
+  "mount-hotham": {
+   "note": "no data source configured yet",
+   "status": "no_source"
+  },
+  "mount-snow": {
+   "note": "",
+   "status": "ok"
+  },
+  "mount-sunapee": {
+   "note": "page served but no snowReportData (likely pre-season)",
+   "status": "no_report"
+  },
+  "mt-brighton": {
+   "note": "page served but no snowReportData (likely pre-season)",
+   "status": "no_report"
+  },
+  "nakiska": {
+   "note": "no data source configured yet",
+   "status": "no_source"
+  },
+  "northstar": {
+   "note": "",
+   "status": "ok"
+  },
+  "okemo": {
+   "note": "",
+   "status": "ok"
+  },
+  "paoli-peaks": {
+   "note": "page served but no snowReportData (likely pre-season)",
+   "status": "no_report"
+  },
+  "park-city": {
+   "note": "",
+   "status": "ok"
+  },
+  "perisher": {
+   "note": "no data source configured yet",
+   "status": "no_source"
+  },
+  "roundtop": {
+   "note": "page served but no snowReportData (likely pre-season)",
+   "status": "no_report"
+  },
+  "rusutsu": {
+   "note": "no data source configured yet",
+   "status": "no_source"
+  },
+  "saalbach": {
+   "note": "no data source configured yet",
+   "status": "no_source"
+  },
+  "seven-springs": {
+   "note": "page served but no snowReportData (likely pre-season)",
+   "status": "no_report"
+  },
+  "silvretta-montafon": {
+   "note": "no data source configured yet",
+   "status": "no_source"
+  },
+  "ski-arlberg": {
+   "note": "no data source configured yet",
+   "status": "no_source"
+  },
+  "skirama-dolomiti": {
+   "note": "no data source configured yet",
+   "status": "no_source"
+  },
+  "snow-creek": {
+   "note": "page served but no snowReportData (likely pre-season)",
+   "status": "no_report"
+  },
+  "soelden": {
+   "note": "no data source configured yet",
+   "status": "no_source"
+  },
+  "stevens-pass": {
+   "note": "",
+   "status": "ok"
+  },
+  "stoneham": {
+   "note": "no data source configured yet",
+   "status": "no_source"
+  },
+  "stowe": {
+   "note": "",
+   "status": "ok"
+  },
+  "telluride": {
+   "note": "no data source configured yet",
+   "status": "no_source"
+  },
+  "vail": {
+   "note": "",
+   "status": "ok"
+  },
+  "verbier-4-vallees": {
+   "note": "no data source configured yet",
+   "status": "no_source"
+  },
+  "whistler-blackcomb": {
+   "note": "",
+   "status": "ok"
+  },
+  "whitetail": {
+   "note": "page served but no snowReportData (likely pre-season)",
+   "status": "no_report"
+  },
+  "wildcat": {
+   "note": "page served but no snowReportData (likely pre-season)",
+   "status": "no_report"
+  },
+  "wilmot": {
+   "note": "page served but no snowReportData (likely pre-season)",
+   "status": "no_report"
+  },
+  "zell-am-see-kaprun": {
+   "note": "no data source configured yet",
+   "status": "no_source"
+  },
+  "zillertal": {
+   "note": "no data source configured yet",
+   "status": "no_source"
+  }
+ },
+ "season": "2026-27"
+}

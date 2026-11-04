@@ -1,0 +1,807 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Epic Snow Tracker</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+:root{
+  color-scheme: light;
+  --surface-0:#f6f6f4; --surface-1:#fcfcfb; --surface-2:#eeeeea;
+  --border:#dedcd4; --border-strong:#c6c4b9;
+  --text-primary:#0b0b0b; --text-secondary:#52514e; --text-muted:#78766f;
+  --series-1:#2a78d6; --series-1-soft:rgba(42,120,214,.14);
+  --accent:#1c5cab;
+  --star:#eda100;
+  --warn:#8a5a00; --warn-bg:#fdf3dc;
+  --nodata:#b9b7ad;
+  --shadow:0 1px 2px rgba(0,0,0,.06),0 8px 24px rgba(0,0,0,.06);
+  --radius:10px;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  /* Map ramp — fixed in both themes. The markers sit on light OSM tiles, not on
+     the page surface, so they are stepped for a light background either way.
+     These are discrete ordered marks rather than a continuous surface, so the
+     ramp starts at the ordinal floor (step 250) instead of fading toward white;
+     a paler first step disappears against the basemap. */
+  --m0:#86b6ef; --m1:#6da7ec; --m2:#3987e5; --m3:#256abf; --m4:#184f95; --m5:#0d366b;
+  --m-ring:#ffffff; --m-nodata:#8a887e;
+}
+@media (prefers-color-scheme: dark){
+  :root:where(:not([data-theme="light"])){
+    color-scheme: dark;
+    --surface-0:#111110; --surface-1:#1a1a19; --surface-2:#232321;
+    --border:#34332f; --border-strong:#4a4844;
+    --text-primary:#f0efec; --text-secondary:#c3c2b7; --text-muted:#948f85;
+    --series-1:#3987e5; --series-1-soft:rgba(57,135,229,.20);
+    --accent:#6da7ec;
+    --star:#c98500;
+    --warn:#e0b45a; --warn-bg:#2e2512;
+    --nodata:#5b594f;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --surface-0:#111110; --surface-1:#1a1a19; --surface-2:#232321;
+  --border:#34332f; --border-strong:#4a4844;
+  --text-primary:#f0efec; --text-secondary:#c3c2b7; --text-muted:#948f85;
+  --series-1:#3987e5; --series-1-soft:rgba(57,135,229,.20);
+  --accent:#6da7ec;
+  --star:#c98500;
+  --warn:#e0b45a; --warn-bg:#2e2512;
+  --nodata:#5b594f;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--surface-0); color:var(--text-primary);
+  font:15px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px;margin:0 auto;padding:20px 16px 72px}
+
+/* ---------- header ---------- */
+header.top{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between;margin-bottom:18px}
+h1{font-size:23px;line-height:1.2;margin:0;letter-spacing:-.02em;font-weight:650}
+h1 .flake{color:var(--series-1)}
+.sub{color:var(--text-secondary);font-size:13px;margin-top:3px}
+.hdr-ctl{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+select,input[type=search],button{
+  font:inherit;font-size:13px;color:var(--text-primary);background:var(--surface-1);
+  border:1px solid var(--border);border-radius:8px;padding:6px 10px;
+}
+select,button{cursor:pointer}
+button:hover,select:hover{border-color:var(--border-strong)}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface-1)}
+.seg button{border:0;border-radius:0;background:transparent;padding:6px 11px;color:var(--text-secondary)}
+.seg button[aria-pressed=true]{background:var(--series-1);color:#fff;font-weight:600}
+
+/* ---------- panels ---------- */
+.panel{background:var(--surface-1);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow)}
+.panel-hd{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--border)}
+.panel-hd h2{margin:0;font-size:14px;font-weight:650;letter-spacing:-.01em}
+.panel-hd .note{font-size:12px;color:var(--text-muted)}
+
+/* ---------- map ---------- */
+#map{height:420px;border-radius:0 0 var(--radius) var(--radius);background:var(--surface-2)}
+@media (max-width:640px){#map{height:320px}}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center;padding:10px 14px;font-size:12px;color:var(--text-secondary);border-top:1px solid var(--border)}
+.legend .rampwrap{display:inline-flex;flex-direction:column;gap:3px}
+.legend .ramp{display:flex;align-items:center;gap:0}
+.legend .ramp i{width:30px;height:11px;display:block}
+.legend .ramp i:first-child{border-radius:3px 0 0 3px}
+.legend .ramp i:last-child{border-radius:0 3px 3px 0}
+.legend .lab{display:flex;gap:0;font-variant-numeric:tabular-nums;font-size:10.5px;color:var(--text-muted)}
+.legend .lab span{width:30px;text-align:left;padding-left:1px}
+.legend .lab span:last-child{width:auto}
+.legend .nd{display:inline-flex;align-items:center;gap:6px}
+.legend .nd i{width:11px;height:11px;border-radius:50%;border:2px solid var(--m-nodata);background:transparent;display:block}
+.leaflet-container{font:inherit;background:var(--surface-2)}
+.leaflet-popup-content-wrapper{border-radius:9px}
+.mk-tip{font:600 12px/1.35 ui-sans-serif,system-ui,sans-serif}
+.mk-tip small{display:block;font-weight:400;color:#555;font-size:11px}
+
+/* ---------- controls ---------- */
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:18px 0 10px}
+.controls input[type=search]{flex:1 1 220px;min-width:180px}
+.chip{font-size:12px;color:var(--text-secondary);background:var(--surface-2);border:1px solid var(--border);border-radius:999px;padding:4px 10px}
+
+/* ---------- table ---------- */
+.tbl-wrap{overflow-x:auto;border-radius:0 0 var(--radius) var(--radius)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+thead th{
+  position:sticky;top:0;z-index:2;background:var(--surface-2);
+  text-align:right;font-size:11px;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--text-secondary);font-weight:650;padding:9px 10px;white-space:nowrap;
+  border-bottom:1px solid var(--border);cursor:pointer;user-select:none;
+}
+thead th:first-child,thead th.l{text-align:left}
+thead th.nosort{cursor:default}
+thead th .ar{opacity:.4;font-size:9px;margin-left:3px}
+thead th[aria-sort] .ar{opacity:1;color:var(--series-1)}
+tbody td{padding:9px 10px;text-align:right;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums}
+tbody td.l{text-align:left}
+tbody tr.row{cursor:pointer}
+tbody tr.row:hover{background:var(--surface-2)}
+tbody tr.row.sel{background:var(--series-1-soft)}
+tbody tr.row.sel td:first-child{box-shadow:inset 3px 0 0 var(--series-1)}
+.rname{font-weight:600;letter-spacing:-.01em}
+.rmeta{font-size:11.5px;color:var(--text-muted);margin-top:1px}
+.star{background:none;border:0;padding:2px 4px;font-size:15px;line-height:1;cursor:pointer;color:var(--border-strong)}
+.star[aria-pressed=true]{color:var(--star)}
+.star:hover{color:var(--star)}
+.big{font-weight:650}
+.dim{color:var(--text-muted)}
+.unit{font-size:11px;color:var(--text-muted);margin-left:1px}
+.stale{color:var(--warn);background:var(--warn-bg);border-radius:5px;padding:1px 5px;font-size:11px;white-space:nowrap}
+.nodata-pill{color:var(--text-muted);font-size:11.5px}
+
+/* ---------- detail ---------- */
+tr.detail>td{padding:0;background:var(--surface-0)}
+/* The table scrolls sideways on narrow screens; pin the detail to the visible
+   area so its cards and charts never ride off the edge with the columns. */
+.detail-in{
+  padding:16px 14px 18px;border-bottom:1px solid var(--border);
+  text-align:left;position:sticky;left:0;
+  width:min(100vw - 34px, 1146px);
+}
+.dgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:8px;margin-bottom:16px}
+.stat{background:var(--surface-1);border:1px solid var(--border);border-radius:9px;padding:9px 11px}
+.stat .k{font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--text-muted);font-weight:600}
+.stat .v{font-size:19px;font-weight:650;letter-spacing:-.02em;margin-top:2px}
+.stat .v .unit{font-size:11px;font-weight:500}
+.charts{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:760px){.charts{grid-template-columns:1fr}}
+.card{background:var(--surface-1);border:1px solid var(--border);border-radius:9px;padding:12px 12px 8px}
+.card h3{margin:0 0 2px;font-size:13px;font-weight:650;letter-spacing:-.01em}
+.card .cnote{font-size:11.5px;color:var(--text-muted);margin-bottom:8px}
+.chart{width:100%;height:170px;display:block;overflow:visible;touch-action:pan-y}
+.chart .grid{stroke:var(--border);stroke-width:1}
+.chart .axis{fill:var(--text-muted);font-size:10px}
+.chart .ln{fill:none;stroke:var(--series-1);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.chart .ar{fill:var(--series-1-soft)}
+.chart .dot{fill:var(--series-1);stroke:var(--surface-1);stroke-width:2}
+.chart .endlab{fill:var(--text-primary);font-size:11px;font-weight:650}
+.chart .cross{stroke:var(--border-strong);stroke-width:1;stroke-dasharray:3 3}
+.empty{display:flex;align-items:center;justify-content:center;height:170px;color:var(--text-muted);font-size:12.5px;text-align:center;padding:0 12px}
+.fc{display:flex;gap:6px;overflow-x:auto;margin-top:14px}
+.fc .d{flex:0 0 auto;min-width:78px;background:var(--surface-1);border:1px solid var(--border);border-radius:9px;padding:8px 9px;text-align:center}
+.fc .d .dd{font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--text-muted);font-weight:650}
+.fc .d .tt{font-size:13px;font-weight:600;margin-top:3px;font-variant-numeric:tabular-nums}
+.fc .d .sn{font-size:11.5px;color:var(--series-1);font-weight:650;margin-top:3px;font-variant-numeric:tabular-nums}
+.fc .d .cc{font-size:10.5px;color:var(--text-muted);margin-top:2px;line-height:1.25}
+.dlinks{margin-top:14px;font-size:12.5px}
+.dlinks a{color:var(--accent);text-decoration:none;margin-right:14px}
+.dlinks a:hover{text-decoration:underline}
+.tip{position:fixed;pointer-events:none;z-index:9999;background:var(--surface-1);border:1px solid var(--border-strong);
+  border-radius:8px;padding:6px 9px;font-size:12px;box-shadow:var(--shadow);opacity:0;transition:opacity .1s;white-space:nowrap}
+.tip.on{opacity:1}
+.tip b{font-variant-numeric:tabular-nums}
+footer{margin-top:26px;font-size:12px;color:var(--text-muted);line-height:1.6}
+footer a{color:var(--accent)}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <div>
+    <h1><span class="flake">❄</span> Epic Snow Tracker</h1>
+    <div class="sub" id="sub">Loading…</div>
+  </div>
+  <div class="hdr-ctl">
+    <label class="vh" for="season">Season</label>
+    <select id="season"></select>
+    <div class="seg" role="group" aria-label="Units">
+      <button id="u-in" aria-pressed="true">in</button>
+      <button id="u-cm" aria-pressed="false">cm</button>
+    </div>
+    <button id="theme" title="Toggle light / dark">◐</button>
+  </div>
+</header>
+
+<section class="panel">
+  <div class="panel-hd">
+    <h2>Where the snow is</h2>
+    <div class="hdr-ctl">
+      <label class="vh" for="metric">Map metric</label>
+      <select id="metric">
+        <option value="base">Base depth</option>
+        <option value="tot">Season total</option>
+        <option value="h24">24-hour snowfall</option>
+        <option value="d7">7-day snowfall</option>
+      </select>
+      <span class="note">Click a marker to pin its row</span>
+    </div>
+  </div>
+  <div id="map"></div>
+  <div class="legend" id="legend"></div>
+</section>
+
+<div class="controls">
+  <input type="search" id="q" placeholder="Search resort, state, region…" aria-label="Search resorts">
+  <select id="region"><option value="">All regions</option></select>
+  <select id="tier">
+    <option value="">All resorts</option>
+    <option value="owned">Vail-operated</option>
+    <option value="partner">Partner</option>
+  </select>
+  <select id="reporting">
+    <option value="">Reporting + not yet</option>
+    <option value="yes">Reporting only</option>
+  </select>
+  <span class="chip" id="count"></span>
+</div>
+
+<section class="panel">
+  <div class="tbl-wrap">
+    <table id="tbl">
+      <thead><tr>
+        <th class="nosort l" aria-label="Favorite"></th>
+        <th class="l" data-k="name">Resort <span class="ar">▾</span></th>
+        <th data-k="base">Base <span class="ar">▾</span></th>
+        <th data-k="tot">Season <span class="ar">▾</span></th>
+        <th data-k="h24">24 h <span class="ar">▾</span></th>
+        <th data-k="d7">7 d <span class="ar">▾</span></th>
+        <th class="l" data-k="cond">Conditions <span class="ar">▾</span></th>
+        <th data-k="up">Updated <span class="ar">▾</span></th>
+      </tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+</section>
+
+<footer>
+  <div id="foot"></div>
+  <div style="margin-top:6px">
+    Snow numbers come straight from each resort's own snow &amp; weather report, in the units
+    they publish — both inches and centimetres are stored, so nothing is converted or rounded here.
+  </div>
+</footer>
+</div>
+
+<div class="tip" id="tip" role="status" aria-live="polite"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="data.js"></script>
+<script>
+(function(){
+"use strict";
+var D = window.SNOWD_DATA;
+var LS = {
+  get: function(k, d){ try { var v = localStorage.getItem("snowd."+k); return v===null?d:JSON.parse(v); } catch(e){ return d; } },
+  set: function(k, v){ try { localStorage.setItem("snowd."+k, JSON.stringify(v)); } catch(e){} }
+};
+
+if(!D || !D.resorts){
+  document.getElementById("sub").textContent = "Could not load data.js — run scripts/build_site_data.py.";
+  return;
+}
+
+/* ------------------------------------------------ state */
+var S = {
+  season:  LS.get("season", null) || (D.seasons[0] || ""),
+  unit:    LS.get("unit", "in"),
+  metric:  "base",
+  q: "", region: "", tier: "", reporting: "",
+  sortK:   LS.get("sortK", "base"),
+  sortDir: LS.get("sortDir", -1),
+  favs:    LS.get("favs", []),
+  sel:     null,
+  open:    null
+};
+if(D.seasons.indexOf(S.season) === -1) S.season = D.seasons[0] || "";
+
+var theme = LS.get("theme", null);
+if(theme) document.documentElement.setAttribute("data-theme", theme);
+
+var byId = {};
+D.resorts.forEach(function(r){ byId[r.id] = r; });
+
+/* ------------------------------------------------ helpers */
+function series(id){ var s = D.snow[S.season]; return (s && s[id]) || []; }
+function latest(id){ var a = series(id); return a.length ? a[a.length-1] : null; }
+function forecast(id){ var f = D.forecast[S.season]; return (f && f[id]) || []; }
+
+var U = { in: {suf:"in", k:"_in"}, cm: {suf:"cm", k:"_cm"} };
+function val(obs, metric){ if(!obs) return null; var v = obs[metric + U[S.unit].k]; return (v===null||v===undefined)?null:v; }
+/** metric value always in inches — the common scale for binning/sorting */
+function inches(obs, metric){ if(!obs) return null; var v = obs[metric+"_in"]; return (v===null||v===undefined)?null:v; }
+
+function fmt(v){
+  if(v === null || v === undefined) return "–";
+  return (Math.abs(v - Math.round(v)) < 0.05) ? String(Math.round(v)) : v.toFixed(1);
+}
+function num(v){
+  if(v === null || v === undefined) return '<span class="dim">–</span>';
+  return '<span class="big">'+fmt(v)+'</span><span class="unit">'+U[S.unit].suf+'</span>';
+}
+function daysAgo(iso){
+  if(!iso) return null;
+  var t = Date.parse(iso); if(isNaN(t)) return null;
+  return (Date.now() - t) / 86400000;
+}
+function ago(iso){
+  var d = daysAgo(iso);
+  if(d === null) return "–";
+  if(d < 0.0417) return "just now";
+  if(d < 1) return Math.round(d*24) + "h ago";
+  if(d < 2) return "yesterday";
+  if(d < 30) return Math.round(d) + "d ago";
+  var m = Math.round(d/30.44);
+  return m + (m === 1 ? " month ago" : " months ago");
+}
+function esc(s){
+  return String(s===null||s===undefined?"":s).replace(/[&<>"']/g, function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+  });
+}
+function place(r){
+  var bits = [];
+  if(r.state) bits.push(r.state);
+  if(r.country && r.country !== "US") bits.push(r.country);
+  bits.push(r.region);
+  return bits.join(" · ");
+}
+/** A resort is "reporting" if we ever got a snow row for it this season. */
+function reporting(id){ return series(id).length > 0; }
+
+/* ------------------------------------------------ colour bins (sequential, one hue) */
+var BINS = [
+  {max:1,   v:"--m0", lab:"0"},
+  {max:12,  v:"--m1", lab:"1"},
+  {max:24,  v:"--m2", lab:"12"},
+  {max:48,  v:"--m3", lab:"24"},
+  {max:72,  v:"--m4", lab:"48"},
+  {max:1e9, v:"--m5", lab:"72+"}
+];
+function cssv(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function binColor(inchVal){
+  if(inchVal === null) return cssv("--m-nodata");
+  for(var i=0;i<BINS.length;i++) if(inchVal < BINS[i].max) return cssv(BINS[i].v);
+  return cssv("--m5");
+}
+function radius(inchVal){
+  if(inchVal === null) return 5;
+  return 5 + Math.sqrt(Math.max(0, inchVal)) * 1.45;
+}
+
+function drawLegend(){
+  var el = document.getElementById("legend");
+  var mName = document.getElementById("metric").selectedOptions[0].textContent;
+  var ramp = BINS.map(function(b){ return '<i style="background:'+cssv(b.v)+'"></i>'; }).join("");
+  var labs = BINS.map(function(b){
+    var n = b.lab === "72+" ? b.lab : b.lab;
+    if(S.unit === "cm" && b.lab !== "0" && b.lab !== "72+") n = Math.round(parseFloat(b.lab)*2.54);
+    else if(S.unit === "cm" && b.lab === "72+") n = "183+";
+    return "<span>"+n+"</span>";
+  }).join("");
+  el.innerHTML =
+    '<strong style="font-weight:650;color:var(--text-secondary)">'+esc(mName)+' ('+U[S.unit].suf+')</strong>'+
+    '<span class="rampwrap"><span class="ramp">'+ramp+'</span><span class="lab">'+labs+'</span></span>'+
+    '<span class="nd"><i></i> no report yet</span>';
+}
+
+/* ------------------------------------------------ map */
+var map, layer, markers = {};
+function initMap(){
+  map = L.map("map", {scrollWheelZoom:false, worldCopyJump:true});
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom:17
+  }).addTo(map);
+  layer = L.layerGroup().addTo(map);
+  map.setView([45, -100], 3);
+  drawMarkers(true);
+}
+
+function drawMarkers(fit){
+  layer.clearLayers(); markers = {};
+  var pts = [];
+  D.resorts.forEach(function(r){
+    var obs = latest(r.id);
+    var iv  = inches(obs, S.metric);
+    var has = reporting(r.id);
+    var m = L.circleMarker([r.lat, r.lon], {
+      radius: radius(has ? iv : null),
+      fillColor: binColor(has ? iv : null),
+      fillOpacity: has ? 0.92 : 0,
+      color: has ? cssv("--m-ring") : cssv("--m-nodata"),
+      weight: 2,
+      className: "mk"
+    });
+    var shown = val(obs, S.metric);
+    m.bindTooltip(
+      '<span class="mk-tip">'+esc(r.name)+
+      (has ? ' — '+fmt(shown)+U[S.unit].suf : '')+
+      '<small>'+esc(place(r))+(has ? '' : ' · no report yet')+'</small></span>',
+      {direction:"top", offset:[0,-4]}
+    );
+    m.on("click", function(){ select(r.id, true); });
+    m.addTo(layer);
+    markers[r.id] = m;
+    pts.push([r.lat, r.lon]);
+  });
+  if(fit && pts.length){
+    // Open on the resorts actually reporting — fitting all 59 would zoom out to
+    // the whole globe just to include the European and Japanese partners.
+    var live = D.resorts.filter(function(r){ return reporting(r.id); })
+                        .map(function(r){ return [r.lat, r.lon]; });
+    map.fitBounds(live.length ? live : pts, {padding:[30,30], maxZoom:6});
+  }
+  drawLegend();
+}
+
+/* ------------------------------------------------ table */
+function filtered(){
+  var q = S.q.trim().toLowerCase();
+  return D.resorts.filter(function(r){
+    if(S.region && r.region !== S.region) return false;
+    if(S.tier && r.tier !== S.tier) return false;
+    if(S.reporting === "yes" && !reporting(r.id)) return false;
+    if(q){
+      var hay = (r.name+" "+r.state+" "+r.region+" "+r.country+" "+r.operator).toLowerCase();
+      if(hay.indexOf(q) === -1) return false;
+    }
+    return true;
+  });
+}
+
+function sortVal(r, k){
+  var obs = latest(r.id);
+  if(k === "name") return r.name.toLowerCase();
+  if(k === "cond") return (obs && obs.cond ? obs.cond : "").toLowerCase();
+  if(k === "up")   { var t = obs && obs.up ? Date.parse(obs.up) : NaN; return isNaN(t) ? null : t; }
+  return inches(obs, k);
+}
+
+function render(){
+  var rows = filtered();
+  var k = S.sortK, dir = S.sortDir;
+  rows.sort(function(a, b){
+    var av = sortVal(a, k), bv = sortVal(b, k);
+    // rows without a value always sink, whichever way the sort runs
+    var an = av === null || av === undefined, bn = bv === null || bv === undefined;
+    if(an && bn) return a.name.localeCompare(b.name);
+    if(an) return 1;
+    if(bn) return -1;
+    if(av < bv) return -dir;
+    if(av > bv) return dir;
+    return a.name.localeCompare(b.name);
+  });
+  // pinned: the map-selected resort first, then favourites, then everything else
+  var rank = function(r){ return r.id === S.sel ? 0 : (S.favs.indexOf(r.id) !== -1 ? 1 : 2); };
+  rows.sort(function(a, b){ return rank(a) - rank(b); });
+
+  var tb = document.getElementById("tbody");
+  var html = "";
+  rows.forEach(function(r){
+    var obs = latest(r.id), has = reporting(r.id);
+    var isFav = S.favs.indexOf(r.id) !== -1;
+    var age = obs ? daysAgo(obs.up || obs.t) : null;
+    var upCell = !has ? '<span class="nodata-pill">not yet</span>'
+      : (age !== null && age > 3
+          ? '<span class="stale" title="'+esc(obs.upText||"")+'">'+ago(obs.up||obs.t)+'</span>'
+          : '<span class="dim" title="'+esc(obs.upText||"")+'">'+ago(obs.up||obs.t)+'</span>');
+    html +=
+      '<tr class="row'+(r.id===S.sel?" sel":"")+'" data-id="'+r.id+'" tabindex="0" aria-expanded="'+(S.open===r.id)+'">'+
+        '<td class="l"><button class="star" aria-pressed="'+isFav+'" data-fav="'+r.id+'" '+
+          'title="'+(isFav?"Remove from favourites":"Add to favourites")+'" '+
+          'aria-label="'+(isFav?"Remove ":"Add ")+esc(r.name)+(isFav?" from":" to")+' favourites">'+(isFav?"★":"☆")+'</button></td>'+
+        '<td class="l"><div class="rname">'+esc(r.name)+'</div><div class="rmeta">'+esc(place(r))+
+          (r.tier==="partner"?' · partner':'')+'</div></td>'+
+        '<td>'+(has?num(val(obs,"base")):'<span class="dim">–</span>')+'</td>'+
+        '<td>'+(has?num(val(obs,"tot")):'<span class="dim">–</span>')+'</td>'+
+        '<td>'+(has?num(val(obs,"h24")):'<span class="dim">–</span>')+'</td>'+
+        '<td>'+(has?num(val(obs,"d7")):'<span class="dim">–</span>')+'</td>'+
+        '<td class="l">'+(has&&obs.cond?esc(obs.cond):'<span class="dim">–</span>')+'</td>'+
+        '<td>'+upCell+'</td>'+
+      '</tr>';
+    if(S.open === r.id) html += '<tr class="detail"><td colspan="8">'+detailHTML(r)+'</td></tr>';
+  });
+  tb.innerHTML = html || '<tr><td colspan="8" style="padding:26px;text-align:center" class="dim">No resorts match.</td></tr>';
+
+  document.getElementById("count").textContent =
+    rows.length + " of " + D.resorts.length + " resorts" +
+    (S.favs.length ? " · " + S.favs.length + " favourite" + (S.favs.length>1?"s":"") : "");
+
+  document.querySelectorAll("#tbl thead th").forEach(function(th){
+    th.removeAttribute("aria-sort");
+    if(th.dataset.k === S.sortK) th.setAttribute("aria-sort", S.sortDir === 1 ? "ascending" : "descending");
+    var ar = th.querySelector(".ar");
+    if(ar) ar.textContent = (th.dataset.k === S.sortK && S.sortDir === 1) ? "▴" : "▾";
+  });
+
+  if(S.open) drawCharts(S.open);
+}
+
+/* ------------------------------------------------ detail + charts */
+function detailHTML(r){
+  var obs = latest(r.id), has = reporting(r.id), a = series(r.id);
+  var stats = [
+    ["Base depth","base"], ["Season total","tot"],
+    ["12 h","h12"], ["24 h","h24"], ["48 h","h48"], ["7 day","d7"]
+  ];
+  var sg = stats.map(function(p){
+    var v = has ? val(obs, p[1]) : null;
+    return '<div class="stat"><div class="k">'+p[0]+'</div><div class="v">'+
+      (v===null?'<span class="dim" style="font-size:16px">–</span>':fmt(v)+'<span class="unit">'+U[S.unit].suf+'</span>')+
+      '</div></div>';
+  }).join("");
+
+  var fcs = forecast(r.id);
+  var fcHTML = "";
+  if(fcs.length){
+    fcHTML = '<div class="cnote" style="margin-top:16px;font-weight:650;color:var(--text-secondary);font-size:12px">FORECAST</div><div class="fc">'+
+      fcs.map(function(d){
+        var dt = new Date(d.date+"T12:00:00Z");
+        var day = dt.toLocaleDateString(undefined,{weekday:"short",timeZone:"UTC"});
+        var md  = dt.toLocaleDateString(undefined,{month:"numeric",day:"numeric",timeZone:"UTC"});
+        var hi = S.unit==="in" ? d.hi_f : d.hi_c, lo = S.unit==="in" ? d.lo_f : d.lo_c;
+        var deg = S.unit==="in" ? "°F" : "°C";
+        var dayS = S.unit==="in" ? d.day_in : d.day_cm, nightS = S.unit==="in" ? d.night_in : d.night_cm;
+        var snow = [];
+        if(dayS && dayS !== "0") snow.push(dayS+" day");
+        if(nightS && nightS !== "0") snow.push(nightS+" night");
+        return '<div class="d"><div class="dd">'+esc(day)+' '+esc(md)+'</div>'+
+          '<div class="tt">'+(hi===null?"–":Math.round(hi))+'° <span class="dim">'+(lo===null?"–":Math.round(lo))+'°</span></div>'+
+          '<div class="sn">'+(snow.length?esc(snow.join(" · "))+'<span class="unit">'+U[S.unit].suf+'</span>':'<span class="dim">—</span>')+'</div>'+
+          '<div class="cc">'+esc(d.cond||"")+'</div></div>';
+      }).join("")+'</div>';
+  }
+
+  var note = has
+    ? (a.length < 2
+        ? "Only one reading so far — the line fills in as the daily fetch runs."
+        : a.length + " readings this season")
+    : "";
+  var warn = "";
+  if(has){
+    var age = daysAgo(obs.up || obs.t);
+    if(age !== null && age > 3){
+      warn = '<div class="cnote" style="color:var(--warn)">⚠ The resort last refreshed this report '+
+             ago(obs.up||obs.t)+' ('+esc(obs.upText||"")+'), so these numbers may be last season\'s.</div>';
+    }
+  } else {
+    warn = '<div class="cnote">'+(r.src === "vail_cms"
+      ? "This resort has not published a snow report yet this season."
+      : "No machine-readable snow source for this resort yet — only its location is tracked.")+'</div>';
+  }
+
+  return '<div class="detail-in">'+warn+'<div class="dgrid">'+sg+'</div>'+
+    '<div class="charts">'+
+      chartCard("base", r, "Base depth", note)+
+      chartCard("tot", r, "Cumulative snowfall", note)+
+    '</div>'+ fcHTML +
+    '<div class="dlinks">'+
+      (r.report ? '<a href="'+esc(r.report)+'" target="_blank" rel="noopener">Resort snow report ↗</a>' : '')+
+      '<a href="'+esc(r.url)+'" target="_blank" rel="noopener">'+esc(r.name)+' ↗</a>'+
+      '<a href="https://www.openstreetmap.org/?mlat='+r.lat+'&mlon='+r.lon+'#map=12/'+r.lat+'/'+r.lon+
+        '" target="_blank" rel="noopener">Map ↗</a>'+
+    '</div></div>';
+}
+
+function chartCard(metric, r, title, note){
+  var a = series(r.id).filter(function(o){ return inches(o, metric) !== null; });
+  var body = a.length
+    ? '<svg class="chart" data-metric="'+metric+'" data-id="'+r.id+'" preserveAspectRatio="none"></svg>'
+    : '<div class="empty">No '+esc(title.toLowerCase())+' recorded yet.</div>';
+  return '<div class="card"><h3>'+esc(title)+'</h3><div class="cnote">'+esc(note||"")+'</div>'+body+'</div>';
+}
+
+function drawCharts(id){
+  document.querySelectorAll('svg.chart[data-id="'+id+'"]').forEach(function(svg){
+    drawChart(svg, id, svg.dataset.metric);
+  });
+}
+
+function drawChart(svg, id, metric){
+  var raw = series(id).filter(function(o){ return inches(o, metric) !== null; });
+  if(!raw.length) return;
+  var W = svg.clientWidth || svg.parentNode.clientWidth || 320, H = 170;
+  var P = {t:16, r:30, b:22, l:34};
+  svg.setAttribute("viewBox", "0 0 "+W+" "+H);
+  svg.setAttribute("width", W); svg.setAttribute("height", H);
+
+  var pts = raw.map(function(o){
+    return { x: Date.parse(o.t), y: val(o, metric), obs: o };
+  }).filter(function(p){ return !isNaN(p.x) && p.y !== null; });
+  if(!pts.length) return;
+
+  var xs = pts.map(function(p){ return p.x; }), ys = pts.map(function(p){ return p.y; });
+  var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs);
+  if(x1 === x0){ x0 -= 43200000; x1 += 43200000; }
+  var yMax = Math.max.apply(null, ys), y1 = yMax <= 0 ? 1 : yMax * 1.18;
+  var sx = function(v){ return P.l + (v - x0) / (x1 - x0) * (W - P.l - P.r); };
+  var sy = function(v){ return H - P.b - (v / y1) * (H - P.t - P.b); };
+
+  var ticks = [0, y1/2, y1].map(function(v){ return Math.round(v); });
+  ticks = ticks.filter(function(v, i, arr){ return arr.indexOf(v) === i; });
+
+  var g = "";
+  ticks.forEach(function(v){
+    g += '<line class="grid" x1="'+P.l+'" y1="'+sy(v).toFixed(1)+'" x2="'+(W-P.r)+'" y2="'+sy(v).toFixed(1)+'"/>'+
+         '<text class="axis" x="'+(P.l-6)+'" y="'+(sy(v)+3.5).toFixed(1)+'" text-anchor="end">'+v+'</text>';
+  });
+
+  var line = pts.map(function(p, i){ return (i?"L":"M") + sx(p.x).toFixed(1)+" "+sy(p.y).toFixed(1); }).join(" ");
+  var area = line + " L"+sx(pts[pts.length-1].x).toFixed(1)+" "+sy(0).toFixed(1)+
+             " L"+sx(pts[0].x).toFixed(1)+" "+sy(0).toFixed(1)+" Z";
+
+  var dots = "";
+  if(pts.length <= 20){
+    dots = pts.map(function(p){
+      return '<circle class="dot" cx="'+sx(p.x).toFixed(1)+'" cy="'+sy(p.y).toFixed(1)+'" r="4"/>';
+    }).join("");
+  }
+  var last = pts[pts.length-1];
+  var endLab = '<text class="endlab" x="'+Math.min(W-2, sx(last.x)+7).toFixed(1)+'" y="'+(sy(last.y)+4).toFixed(1)+
+    '" text-anchor="'+(sx(last.x) > W - P.r - 4 ? "end" : "start")+'">'+fmt(last.y)+'</text>';
+
+  var xl = "";
+  var fmtD = function(t){ return new Date(t).toLocaleDateString(undefined,{month:"short",day:"numeric"}); };
+  xl += '<text class="axis" x="'+P.l+'" y="'+(H-6)+'" text-anchor="start">'+fmtD(x0)+'</text>';
+  if(pts.length > 1) xl += '<text class="axis" x="'+(W-P.r)+'" y="'+(H-6)+'" text-anchor="end">'+fmtD(x1)+'</text>';
+
+  svg.innerHTML = g +
+    '<path class="ar" d="'+area+'"/><path class="ln" d="'+line+'"/>'+ dots + endLab + xl +
+    '<g class="hov" style="display:none"><line class="cross" y1="'+P.t+'" y2="'+(H-P.b)+'"/>'+
+    '<circle class="dot" r="5"/></g>'+
+    '<rect x="'+P.l+'" y="0" width="'+Math.max(0,(W-P.l-P.r))+'" height="'+H+'" fill="transparent" class="hit"/>';
+
+  var hov = svg.querySelector(".hov"), hitEl = svg.querySelector(".hit");
+  var tip = document.getElementById("tip");
+  var label = metric === "base" ? "Base depth" : "Season total";
+
+  function near(clientX){
+    var bb = svg.getBoundingClientRect();
+    var px = (clientX - bb.left) * (W / bb.width);
+    var best = pts[0], bd = Infinity;
+    pts.forEach(function(p){ var d = Math.abs(sx(p.x) - px); if(d < bd){ bd = d; best = p; } });
+    return best;
+  }
+  function show(e){
+    var cx = e.touches ? e.touches[0].clientX : e.clientX;
+    var cy = e.touches ? e.touches[0].clientY : e.clientY;
+    var p = near(cx);
+    hov.style.display = "";
+    hov.querySelector("line").setAttribute("x1", sx(p.x).toFixed(1));
+    hov.querySelector("line").setAttribute("x2", sx(p.x).toFixed(1));
+    hov.querySelector("circle").setAttribute("cx", sx(p.x).toFixed(1));
+    hov.querySelector("circle").setAttribute("cy", sy(p.y).toFixed(1));
+    tip.innerHTML = '<b>'+fmt(p.y)+U[S.unit].suf+'</b> '+esc(label)+'<br>'+
+      new Date(p.x).toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"})+
+      (p.obs.cond ? ' · '+esc(p.obs.cond) : '');
+    tip.classList.add("on");
+    var tw = tip.offsetWidth, th = tip.offsetHeight;
+    tip.style.left = Math.max(6, Math.min(window.innerWidth - tw - 6, cx - tw/2)) + "px";
+    tip.style.top  = Math.max(6, cy - th - 12) + "px";
+  }
+  function hide(){ hov.style.display = "none"; tip.classList.remove("on"); }
+  hitEl.addEventListener("mousemove", show);
+  hitEl.addEventListener("mouseleave", hide);
+  hitEl.addEventListener("touchstart", show, {passive:true});
+  hitEl.addEventListener("touchmove", show, {passive:true});
+  hitEl.addEventListener("touchend", hide);
+}
+
+/* ------------------------------------------------ interactions */
+function select(id, fromMap){
+  S.sel = id;
+  S.open = id;
+  render();
+  if(fromMap){
+    var row = document.querySelector('tr.row[data-id="'+id+'"]');
+    if(row) row.scrollIntoView({behavior:"smooth", block:"center"});
+  } else if(markers[id]){
+    map.panTo(markers[id].getLatLng(), {animate:true});
+    markers[id].openTooltip();
+  }
+}
+
+document.getElementById("tbody").addEventListener("click", function(e){
+  var fav = e.target.closest("[data-fav]");
+  if(fav){
+    e.stopPropagation();
+    var fid = fav.dataset.fav, i = S.favs.indexOf(fid);
+    if(i === -1) S.favs.push(fid); else S.favs.splice(i, 1);
+    LS.set("favs", S.favs);
+    render();
+    return;
+  }
+  var row = e.target.closest("tr.row");
+  if(!row) return;
+  var id = row.dataset.id;
+  if(S.open === id){ S.open = null; render(); }
+  else { S.sel = id; select(id, false); }
+});
+document.getElementById("tbody").addEventListener("keydown", function(e){
+  if(e.key !== "Enter" && e.key !== " ") return;
+  var row = e.target.closest && e.target.closest("tr.row");
+  if(!row || e.target.closest("[data-fav]")) return;
+  e.preventDefault();
+  var id = row.dataset.id;
+  if(S.open === id){ S.open = null; render(); } else { select(id, false); }
+});
+
+document.querySelectorAll("#tbl thead th[data-k]").forEach(function(th){
+  th.addEventListener("click", function(){
+    var k = th.dataset.k;
+    if(S.sortK === k) S.sortDir = -S.sortDir;
+    else { S.sortK = k; S.sortDir = (k === "name" || k === "cond") ? 1 : -1; }
+    LS.set("sortK", S.sortK); LS.set("sortDir", S.sortDir);
+    render();
+  });
+});
+
+function bind(id, ev, fn){ var el = document.getElementById(id); if(el) el.addEventListener(ev, fn); }
+bind("q", "input", function(e){ S.q = e.target.value; render(); });
+bind("region", "change", function(e){ S.region = e.target.value; render(); });
+bind("tier", "change", function(e){ S.tier = e.target.value; render(); });
+bind("reporting", "change", function(e){ S.reporting = e.target.value; render(); });
+bind("metric", "change", function(e){ S.metric = e.target.value; drawMarkers(false); });
+bind("season", "change", function(e){
+  S.season = e.target.value; LS.set("season", S.season);
+  S.open = null; drawMarkers(false); render(); setSub();
+});
+bind("u-in", "click", function(){ setUnit("in"); });
+bind("u-cm", "click", function(){ setUnit("cm"); });
+function setUnit(u){
+  S.unit = u; LS.set("unit", u);
+  document.getElementById("u-in").setAttribute("aria-pressed", String(u === "in"));
+  document.getElementById("u-cm").setAttribute("aria-pressed", String(u === "cm"));
+  drawMarkers(false); render();
+}
+bind("theme", "click", function(){
+  var cur = document.documentElement.getAttribute("data-theme");
+  var sysDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  var next = cur ? (cur === "dark" ? "light" : "dark") : (sysDark ? "light" : "dark");
+  document.documentElement.setAttribute("data-theme", next);
+  LS.set("theme", next);
+  drawMarkers(false); render();
+});
+window.addEventListener("resize", function(){ if(S.open) drawCharts(S.open); });
+
+/* ------------------------------------------------ boot */
+function setSub(){
+  var rep = D.resorts.filter(function(r){ return reporting(r.id); }).length;
+  var el = document.getElementById("sub");
+  el.textContent = D.resorts.length + " Epic Pass resorts · " + rep + " reporting snow for " +
+    S.season + " · data built " + ago(D.generated_at);
+  var noSrc = D.resorts.filter(function(r){ return r.src !== "vail_cms"; }).length;
+  document.getElementById("foot").innerHTML =
+    "Season <strong>"+esc(S.season)+"</strong>. "+
+    rep+" of "+D.resorts.length+" resorts are publishing a snow report right now; "+
+    noSrc+" partner/international resorts are mapped but have no machine-readable source yet. "+
+    "Favourites and display preferences are stored in this browser only.";
+}
+
+(function init(){
+  var sel = document.getElementById("season");
+  sel.innerHTML = D.seasons.map(function(s){
+    return '<option value="'+esc(s)+'"'+(s === S.season ? " selected" : "")+">"+esc(s)+"</option>";
+  }).join("") || '<option value="">no data</option>';
+
+  var regions = [];
+  D.resorts.forEach(function(r){ if(regions.indexOf(r.region) === -1) regions.push(r.region); });
+  regions.sort();
+  var rsel = document.getElementById("region");
+  rsel.innerHTML = '<option value="">All regions</option>' +
+    regions.map(function(x){ return '<option value="'+esc(x)+'">'+esc(x)+"</option>"; }).join("");
+
+  document.getElementById("u-in").setAttribute("aria-pressed", String(S.unit === "in"));
+  document.getElementById("u-cm").setAttribute("aria-pressed", String(S.unit === "cm"));
+
+  initMap();
+  render();
+  setSub();
+})();
+})();
+</script>
+</body>
+</html>

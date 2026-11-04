@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "snowd-site",
+      "runtimeExecutable": "/opt/homebrew/bin/python3.14",
+      "runtimeArgs": ["-m", "http.server", "8777", "--directory", "site"],
+      "port": 8777
+    }
+  ]
+}
