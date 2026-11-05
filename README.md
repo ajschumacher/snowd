@@ -3,7 +3,7 @@
 Tracks snow conditions across the Epic Pass resorts over a season, stores the
 history as CSV in this repo, and ships a static map + table viewer.
 
-**Live site: <https://ajschumacher.github.io/snowd/>** — updated every four hours.
+**Live site: <https://planspace.org/snowd/>** — updated every four hours.
 
 ![resorts](https://img.shields.io/badge/resorts-59-blue) ![source](https://img.shields.io/badge/source-resort%20snow%20reports-blue)
 

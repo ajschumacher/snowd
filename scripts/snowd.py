@@ -26,7 +26,7 @@ from zoneinfo import ZoneInfo
 REPO = Path(__file__).resolve().parent.parent
 DATA = REPO / "data"
 
-USER_AGENT = "snowd/0.1 (personal snow tracker; +https://github.com/local/snowd)"
+USER_AGENT = "snowd/0.1 (personal snow tracker; +https://github.com/ajschumacher/snowd)"
 TIMEOUT = 30
 RETRIES = 3
 
