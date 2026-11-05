@@ -639,20 +639,20 @@ function detailHTML(r){
         ? "Only one reading so far — the line fills in as the daily fetch runs."
         : a.length + " readings this season")
     : "";
-  var warn = "";
-  if(has){
-    var age = daysAgo(obs.up || obs.t);
-    if(age !== null && age > 3){
-      warn = '<div class="cnote" style="color:var(--warn)">⚠ The resort last refreshed this report '+
-             ago(obs.up||obs.t)+' ('+esc(obs.upText||"")+'), so these numbers may be last season\'s.</div>';
-    }
-  } else {
-    warn = '<div class="cnote">'+(r.src === "vail_cms"
+  // No staleness warning here. A row in this season's file is, by
+  // construction, a report published in this season — season comes from the
+  // report's own date, not from when we fetched it — so an old report is just
+  // an old report, not last season's data leaking in. The "Updated" column
+  // already carries its age, flagged amber once it is more than a few days
+  // old. What is worth explaining is the absence of data entirely.
+  var absence = "";
+  if(!has){
+    absence = '<div class="cnote">'+(r.src === "vail_cms"
       ? "This resort has not published a snow report yet this season."
       : "No machine-readable snow source for this resort yet — only its location is tracked.")+'</div>';
   }
 
-  return '<div class="detail-in">'+warn+'<div class="dgrid">'+sg+'</div>'+
+  return '<div class="detail-in">'+absence+'<div class="dgrid">'+sg+'</div>'+
     '<div class="charts">'+
       chartCard("base", r, "Base depth", note)+
       chartCard("tot", r, "Cumulative snowfall", note)+
