@@ -344,6 +344,47 @@ function num(v){
   if(v === null || v === undefined) return '<span class="dim">–</span>';
   return '<span class="big">'+fmt(v)+'</span><span class="unit">'+U[S.unit].suf+'</span>';
 }
+/** Parse a forecast snowfall cell into [lo, hi].
+ *
+ *  The source publishes these as display strings, not numbers: "4", "0-2", or
+ *  empty. Returns null when there is no usable figure.
+ */
+function snowRange(s){
+  if(s === null || s === undefined) return null;
+  s = String(s).trim();
+  if(!s) return null;
+  var m = s.match(/^(\d+(?:\.\d+)?)\s*[-–]\s*(\d+(?:\.\d+)?)$/);
+  if(m) return [parseFloat(m[1]), parseFloat(m[2])];
+  var n = parseFloat(s.replace(/[<>~]/g, ""));
+  return isNaN(n) ? null : [n, n];
+}
+
+/** Day and night snowfall as one figure for that date: "4", "0-4", or null.
+ *
+ *  The source splits each day into a daytime and an overnight figure, either
+ *  of which may be a range. Shown side by side they read as "0-2 day · 0-2
+ *  night cm", which buries the thing you actually want — how much snow that
+ *  day — and leaves the unit dangling after a word. Ranges add bound-wise:
+ *  0-2 plus 0-2 is 0-4.
+ */
+function dayTotal(day, night){
+  var a = snowRange(day), b = snowRange(night);
+  if(!a && !b) return null;
+  var lo = (a ? a[0] : 0) + (b ? b[0] : 0);
+  var hi = (a ? a[1] : 0) + (b ? b[1] : 0);
+  if(hi <= 0) return null;                 // nothing forecast
+  return lo === hi ? fmt(lo) : fmt(lo) + "-" + fmt(hi);
+}
+
+/** The day/night split, kept for the hover title so nothing is lost. */
+function snowBreakdown(day, night, suf){
+  var parts = [];
+  var a = snowRange(day), b = snowRange(night);
+  if(a && a[1] > 0) parts.push("daytime " + String(day).trim() + suf);
+  if(b && b[1] > 0) parts.push("overnight " + String(night).trim() + suf);
+  return parts.join(", ");
+}
+
 function daysAgo(iso){
   if(!iso) return null;
   var t = Date.parse(iso); if(isNaN(t)) return null;
@@ -622,14 +663,15 @@ function detailHTML(r){
         var day = dt.toLocaleDateString(undefined,{weekday:"short",timeZone:"UTC"});
         var md  = dt.toLocaleDateString(undefined,{month:"numeric",day:"numeric",timeZone:"UTC"});
         var hi = S.unit==="in" ? d.hi_f : d.hi_c, lo = S.unit==="in" ? d.lo_f : d.lo_c;
-        var deg = S.unit==="in" ? "°F" : "°C";
         var dayS = S.unit==="in" ? d.day_in : d.day_cm, nightS = S.unit==="in" ? d.night_in : d.night_cm;
-        var snow = [];
-        if(dayS && dayS !== "0") snow.push(dayS+" day");
-        if(nightS && nightS !== "0") snow.push(nightS+" night");
+        var total = dayTotal(dayS, nightS);
+        var suf = U[S.unit].suf;
+        var split = snowBreakdown(dayS, nightS, suf);
         return '<div class="d"><div class="dd">'+esc(day)+' '+esc(md)+'</div>'+
           '<div class="tt">'+(hi===null?"–":Math.round(hi))+'° <span class="dim">'+(lo===null?"–":Math.round(lo))+'°</span></div>'+
-          '<div class="sn">'+(snow.length?esc(snow.join(" · "))+'<span class="unit">'+U[S.unit].suf+'</span>':'<span class="dim">—</span>')+'</div>'+
+          '<div class="sn"'+(split?' title="'+esc(split)+'"':'')+'>'+
+            (total ? esc(total)+'<span class="unit">'+esc(suf)+'</span>' : '<span class="dim">—</span>')+
+          '</div>'+
           '<div class="cc">'+esc(d.cond||"")+'</div></div>';
       }).join("")+'</div>';
   }

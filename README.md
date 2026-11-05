@@ -139,6 +139,13 @@ it last refreshed. The gap between them is what staleness is measured on.
 One row per resort per forecast day per fetch day: temperatures in °F and °C,
 day/night snowfall ranges in both units, conditions and wind.
 
+Daytime and overnight snowfall are stored separately and verbatim, exactly as
+the source publishes them — as display strings, which may be a single value
+(`4`), a range (`0-2`), `Nil`, or empty. The viewer adds the two together into
+one figure per date, bound-wise for ranges (`0-2` plus `0-2` is `0-4`), and
+keeps the split in the cell's hover text. Only the display combines them; the
+CSV keeps both.
+
 ### Duplicate handling
 
 A snow row is "the same row" when it carries the same resort and the same
