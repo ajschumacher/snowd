@@ -223,7 +223,7 @@ footer a{color:var(--accent)}
         <option value="h24">24-hour snowfall</option>
         <option value="d7">7-day snowfall</option>
       </select>
-      <span class="note">Click a marker to pin its row</span>
+      <span class="note">Tap a marker to pull that resort to the top</span>
     </div>
   </div>
   <div id="map"></div>
@@ -266,14 +266,15 @@ footer a{color:var(--accent)}
 <footer>
   <div id="foot"></div>
   <div style="margin-top:6px">
-    Snow numbers come straight from each resort's own snow &amp; weather report. Vail-operated
-    resorts publish inches <em>and</em> centimetres, so both are stored verbatim and nothing is
-    converted. Partner resorts publish one unit only; the other is computed, and shown as
-    &ldquo;&asymp;&rdquo;.
+    Every number here comes from the resort's own snow report — they measure it and publish it
+    for free, and this just writes it down. Vail-operated resorts give inches <em>and</em>
+    centimetres, so both are kept as published. Everywhere else we get one unit and work out
+    the other, marked &ldquo;&asymp;&rdquo;.
   </div>
   <div style="margin-top:6px">
-    Source, and the full season history as CSV, on
+    Code and the full season history, as CSV, are on
     <a href="https://github.com/ajschumacher/snowd" target="_blank" rel="noopener">GitHub</a>.
+    If something looks wrong, it's probably this and not the resort.
   </div>
 </footer>
 </div>
@@ -291,7 +292,7 @@ var LS = {
 };
 
 if(!D || !D.resorts){
-  document.getElementById("sub").textContent = "Could not load data.js — run scripts/build_site_data.py.";
+  document.getElementById("sub").textContent = "Couldn't load data.js — try running scripts/build_site_data.py.";
   return;
 }
 
@@ -363,7 +364,7 @@ function isConverted(obs, v){
 }
 function convNote(obs){
   return "This resort publishes " + ((obs && obs.nat) === "cm" ? "centimetres" : "inches") +
-         " only — shown converted. Switch units to see its own figure.";
+         " only, so this one is worked out from it. Switch units to see their own number.";
 }
 function num(v, obs){
   if(v === null || v === undefined) return '<span class="dim">–</span>';
@@ -643,7 +644,7 @@ function render(){
     // claims a freshness the resort never stated — so say which one it is.
     var polled = !!(obs && !obs.up);
     var upTitle = esc(obs && obs.upText ? obs.upText
-      : (polled ? "This resort publishes no update time; this is when we last fetched it." : ""));
+      : (polled ? "No update time posted — this is when we last checked." : ""));
     var upCell = !has ? '<span class="nodata-pill">not yet</span>'
       : '<span class="'+(age !== null && age > 3 ? "stale" : "dim")+(polled ? " polled" : "")+'"'+
         ' title="'+upTitle+'">'+ago(readingTime(obs))+'</span>';
@@ -732,7 +733,7 @@ function detailHTML(r){
 
   var note = has
     ? (a.length < 2
-        ? "Only one reading so far — the line fills in as the daily fetch runs."
+        ? "Just the one reading so far — the line fills in from here."
         : a.length + " readings this season")
     : "";
   // No staleness warning here. A row in this season's file is, by
@@ -746,12 +747,12 @@ function detailHTML(r){
   var notes = [];
   if(!has){
     notes.push(r.src === "vail_cms"
-      ? "This resort has not published a snow report yet this season."
-      : "No machine-readable snow source for this resort yet — only its location is tracked.");
+      ? "No snow report posted yet this season."
+      : "Nothing readable to pull from this one yet, so we're just tracking where it is.");
   } else {
     if(isConverted(obs, null)) notes.push(convNote(obs));
-    if(obs && !obs.up) notes.push("This resort publishes no update time, so the age shown is "+
-      "when we last fetched it, not when the resort last refreshed.");
+    if(obs && !obs.up) notes.push("This resort doesn't post an update time, so the age shown "+
+      "is when we last checked, not when they last refreshed it.");
   }
   var absence = notes.map(function(n){
     return '<div class="cnote">'+esc(n)+'</div>';
@@ -997,9 +998,9 @@ function setSub(){
   var noSrc = D.resorts.filter(function(r){ return !r.src; }).length;
   document.getElementById("foot").innerHTML =
     "Season <strong>"+esc(S.season)+"</strong>. "+
-    rep+" of "+D.resorts.length+" resorts are publishing a snow report right now; "+
-    noSrc+" more are mapped but have no machine-readable source yet. "+
-    "Favourites and display preferences are stored in this browser only.";
+    rep+" of "+D.resorts.length+" resorts have a report up right now; "+
+    noSrc+" more are on the map but we can't read their numbers yet. "+
+    "Your favourites and settings stay in this browser.";
 }
 
 (function init(){
@@ -1048,7 +1049,7 @@ function setSub(){
   s.onload = function(){ window.__snowdBoot(); };
   s.onerror = function(){
     var el = document.getElementById("sub");
-    if(el) el.textContent = "Could not load data.js — run scripts/build_site_data.py.";
+    if(el) el.textContent = "Couldn't load data.js — try running scripts/build_site_data.py.";
   };
   document.head.appendChild(s);
 })();

@@ -3,21 +3,21 @@
 
     python3 scripts/check_live.py [--only id,id]
 
-The offline tests in `test_snowd.py` prove each parser still reads its captured
-fixture. That is not the same as proving it still reads the site: a fixture is
-frozen the day it was taken, and a site can change underneath it. Sölden did
-exactly that in a way no fixture could catch — the page negotiates language, so
-the capture came back German while the fetcher, which sends an English
-Accept-Language header, got English labels that matched nothing.
+The offline tests in `test_snowd.py` show each parser still reads its saved
+fixture. That is not the same as showing it still reads the site: a fixture is
+frozen the day it was taken. Sölden managed to be wrong from the start — the
+page negotiates language, so the capture came back German while the fetcher,
+which sends an English Accept-Language header, got English labels that matched
+nothing.
 
 So this asks three questions of the real response:
 
   1. does the fetch and parse still work, or does it error;
   2. are the markers each parser depends on still in the page;
-  3. is every resort on a given adapter silently reporting nothing at once,
-     which is what a quiet breakage looks like from the outside.
+  3. is every resort on one adapter reporting nothing all at once, which is
+     what a quiet breakage tends to look like from outside.
 
-It needs the network, so it is not part of the test suite. Run it after
+It needs the network, so it stays out of the test suite. Worth running after
 touching an adapter, or when a resort's columns look emptier than they should.
 """
 

@@ -2,9 +2,12 @@
 """snowd — shared library: fetch and parse resort snow reports.
 
 Each resort's `data_source` in the registry names an **adapter**: a pair of
-"where to GET" and "how to read what comes back". One adapter can serve many
-resorts, which is the whole point — the four western RCR sites publish byte-for
--byte the same field names, so they cost one parser between them, not four.
+"where to GET" and "how to read what comes back". One adapter can cover several
+resorts when they are built the same way — the four western RCR sites use the
+same field names, so they share a parser.
+
+These are all public web pages, published by the resorts for free. Read them
+gently and assume any disagreement is ours, not theirs.
 
   vail_cms      Vail-operated sites. The page embeds its snow report
                 server-side as `FR.snowReportData`, carrying BOTH inches and
@@ -26,9 +29,9 @@ resorts, which is the whole point — the four western RCR sites publish byte-fo
                 No timestamp published. Centimetres only.
 
 Unlike Vail, the partner sources publish a single unit, so the other one is
-computed. Every row records which unit it was actually given in
-(`units_native`), so a converted figure is never passed off as the resort's own
-number.
+computed. Every row records which unit it actually arrived in
+(`units_native`), to keep a worked-out figure distinguishable from a reported
+one.
 """
 
 from __future__ import annotations
@@ -400,12 +403,12 @@ DEPTH_STEMS = ("base_depth", "season_total", "snow_12h", "snow_24h", "snow_48h",
 
 
 def fill_units(row: dict, native: str) -> dict:
-    """Compute the unit a source does not publish, and record which it gave us.
+    """Work out the unit a source does not publish, and note which it gave us.
 
-    Vail hands us inches *and* centimetres, so nothing is ever computed there.
-    Every partner source publishes exactly one, so the other is arithmetic — and
-    that has to be visible, or a derived number would read as the resort's own.
-    `units_native` is that record: "in,cm", "cm" or "in".
+    Vail hands us inches *and* centimetres, so nothing is computed there. Every
+    partner source publishes one, so the other is arithmetic, and it is worth
+    being able to tell the two apart later. `units_native` is that note:
+    "in,cm", "cm" or "in".
     """
     row["units_native"] = native
     for stem in DEPTH_STEMS:
@@ -483,9 +486,9 @@ def parse_rcr(resort: Resort, body: str, observed_at: str) -> FetchResult:
         return FetchResult(resort.resort_id, "error",
                            "refresh.php returned no innerHTML assignments")
 
-    # Two stamps are published; the one on the snow block is the one that
-    # describes these numbers. The lift and terrain blocks carry their own,
-    # often months stale, and must not be mistaken for it.
+    # Two stamps are published. The one on the snow block is the one that
+    # describes these numbers; the lift and terrain blocks carry their own,
+    # often months old, so it is worth being careful which we take.
     updated_text = _text(fields.get("snowReportTH_SnowreportRecentSnowSaveDate")
                          or fields.get("snowReportTH_SnowreportTodaySaveDate") or "")
     report_utc = parse_report_timestamp(updated_text, resort.tz) or ""
@@ -520,9 +523,9 @@ def parse_rcr(resort: Resort, body: str, observed_at: str) -> FetchResult:
 
 # ---------------------------------------------------------------- telluride
 
-#: Telluride renders server-side, and labels each figure in the markup beside
-#: it. Reading by label rather than by position survives a reordering of the
-#: panel, which a positional parser would silently misattribute.
+#: Telluride renders server-side and labels each figure in the markup beside
+#: it. Reading by label rather than by position means that if they rearrange
+#: the panel we come back empty instead of confidently wrong.
 TELLURIDE_LABELS = {
     "snow depth": "base_depth",
     "season total": "season_total",
@@ -598,9 +601,9 @@ def parse_telluride(resort: Resort, html: str, observed_at: str) -> FetchResult:
 # ---------------------------------------------------------------- rusutsu
 
 #: Rusutsu publishes a `<dt>label</dt><dd>value</dd>` pair per figure, per
-#: mountain. The English page has misspelled one of those labels for a while;
-#: accepting both spellings costs nothing and keeps base depth from silently
-#: vanishing if they fix it — or if they don't.
+#: mountain. The English page has had a typo in one of those labels for a
+#: while. Accepting both spellings costs nothing and keeps base depth working
+#: whether or not they ever tidy it up.
 RUSUTSU_LABELS = {
     "snow accumulation": "base_depth",
     "snow sccumulation": "base_depth",   # sic, as published
@@ -793,9 +796,10 @@ def parse_arlberg(resort: Resort, html: str, observed_at: str) -> FetchResult:
             row[f"{stem}_cm"] = v
             published += 1
 
-    # "New snow" is deliberately not mapped. It sits beside "Last snowfall:
-    # Wednesday" with no stated window, so it is not necessarily a 24-hour
-    # figure, and filing it as snow_24h would be inventing a measurement.
+    # "New snow" is left out on purpose. It sits beside "Last snowfall:
+    # Wednesday" and the window isn't stated, so it may or may not mean the
+    # last 24 hours. Better to skip it than to guess and label it snow_24h.
+    # If anyone knows how Arlberg means it, this should change.
 
     m = _ARL_LIFTS.search(html)
     if m:
@@ -825,8 +829,8 @@ _SOL_LIFT_LABELS = ("lifts", "lifte")
 
 def soelden_url(resort: Resort) -> str:
     # Pinned to a locale. Left to negotiate, the site answers our
-    # Accept-Language header with the English page, so a German label would
-    # match in a browser and never in the fetch.
+    # Accept-Language header with the English page — which is how this adapter
+    # first came to match a German capture and nothing on the live site.
     return f"https://www.{resort.domain}/en"
 
 
@@ -883,10 +887,10 @@ def parse_soelden(resort: Resort, html: str, observed_at: str) -> FetchResult:
 class Adapter:
     """Where to GET a resort's report, and how to read what comes back.
 
-    `markers` are the strings in the response this parser depends on. They are
-    not used in normal fetching — `scripts/check_live.py` asserts they are
-    still there, so a site's redesign is caught deliberately instead of being
-    noticed weeks later as a column that quietly went blank.
+    `markers` are the strings in the response this parser leans on. Nothing
+    uses them during a normal fetch; `scripts/check_live.py` checks they are
+    still there, so a redesign turns up as a failed check rather than as a
+    column that quietly went blank a few weeks ago.
     """
 
     url: object                    # Resort -> str
@@ -917,18 +921,18 @@ ADAPTERS: dict[str, Adapter] = {
         arlberg_url, parse_arlberg,
         ("snow-report-box__item", "Mountain", "Valley")),
     "soelden": Adapter(
-        # The English labels are the point: the site answers our
-        # Accept-Language with English even though the URL says nothing.
+        # English labels, because that is what the site actually serves us
+        # once Accept-Language has had its say.
         soelden_url, parse_soelden,
         ("live-info-tile__title", "fst--bodytext--small", "Snow report")),
 }
 
 
 def fetch_resort(resort: Resort, observed_at: str) -> FetchResult:
-    """Fetch and parse one resort, isolating every failure to that resort.
+    """Fetch and parse one resort, keeping any failure to that resort.
 
-    A broken site, a changed page or a parser bug must cost one row, never the
-    run — the other resorts' numbers are still good.
+    A site that is down, a page that changed, or a bug in here should cost one
+    row rather than the whole run — the other resorts are still fine.
     """
     adapter = ADAPTERS.get(resort.data_source)
     if adapter is None:

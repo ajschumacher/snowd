@@ -6,8 +6,10 @@
     scripts/fetch.py --only vail,keystone
     scripts/fetch.py --season 2026-27
 
-Safe to run at any frequency: rows are de-duplicated on each resort's own
-publish timestamp, so extra runs are no-ops and missed days simply leave gaps.
+Fine to run at whatever frequency suits: rows de-duplicate on each resort's
+own publish timestamp, so extra runs do nothing and missed days just leave
+gaps. Please don't run it in a tight loop, though — these are small operations
+giving the data away.
 """
 
 from __future__ import annotations
