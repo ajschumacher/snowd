@@ -315,6 +315,80 @@ def t_kitzsteinhorn():
               r, '<div class="weather-table--snow"></details>', "t").status, "no_report")
 
 
+def t_arlberg():
+    body = (FIXTURES / "skiarlberg_snow_report.html").read_text(encoding="utf-8")
+    r = _resort("ski-arlberg")
+    check("arlberg is on its own adapter", r.data_source, "arlberg")
+    out = snowd.ADAPTERS["arlberg"].parse(r, body, "2026-11-05T17:00:00Z")
+    check("arlberg status", out.status, "ok")
+    # Valley and mountain are published separately; base depth means mountain.
+    check("mountain depth taken", out.snow["base_depth_cm"], 0.0)
+    check("lifts open", out.snow["lifts_open"], 0)
+    check("no timestamp is published", out.snow["report_updated_utc"], "")
+    # "New snow" has no stated window - it sits beside "Last snowfall:
+    # Wednesday" - so it must not be filed as a 24-hour measurement.
+    check("new snow is not passed off as 24h", out.snow.get("snow_24h_cm", ""), "")
+    # "No Info" is the page's way of saying nothing, not a condition.
+    check("'No Info' is not a condition", out.snow["overall_conditions"], "")
+
+    cond = ('<div class="snow-report-box__item"> <div>Consistency</div>'
+            '<div class="snow-report-box__item-info"><span>Powder</span></div></div>'
+            '<div class="snow-report-box__item"> <div>Mountain</div>'
+            '<div class="snow-report-box__item-info"><span>120 cm</span></div></div>')
+    out = snowd.ADAPTERS["arlberg"].parse(r, cond, "t")
+    check("a real condition is kept", out.snow["overall_conditions"], "Powder")
+    check("mountain depth read", out.snow["base_depth_cm"], 120.0)
+
+    check("no items -> no_report",
+          snowd.ADAPTERS["arlberg"].parse(r, "<html>nope</html>", "t").status, "no_report")
+
+
+def t_soelden():
+    body = (FIXTURES / "soelden_home.html").read_text(encoding="utf-8")
+    r = _resort("soelden")
+    check("soelden is on its own adapter", r.data_source, "soelden")
+    # The registry points a reader at the snow-report page, but that page
+    # renders client-side — the adapter reads the home page instead.
+    # Left to negotiate, the site answers our Accept-Language with English,
+    # so the locale is pinned rather than guessed.
+    check("adapter reads a pinned locale of the home page",
+          snowd.soelden_url(r), "https://www.soelden.com/en")
+    check("registry still links the human page",
+          r.snow_report_url, "https://www.soelden.com/de/live-infos/schneebericht")
+    out = snowd.ADAPTERS["soelden"].parse(r, body, "2026-11-05T17:00:00Z")
+    check("soelden status", out.status, "ok")
+    # "0-48 cm" is valley to mountain, not a margin of error.
+    check("upper bound of the range is base depth", out.snow["base_depth_cm"], 48.0)
+    check("converted to inches", out.snow["base_depth_in"], 18.9)
+    check("lifts open", (out.snow["lifts_open"], out.snow["lifts_total"]), (14, 31))
+    # The same page in German must parse identically: the snow tile is found
+    # by its "cm" value, and "von"/"of" is matched as "not digits".
+    de = ('<span class="live-info-tile__title a">0-48 cm</span>'
+          '<span class="fst--bodytext--small b">Schneebericht</span>'
+          '<span class="live-info-tile__title a">14 von 31</span>'
+          '<span class="fst--bodytext--small b">Lifte</span>'
+          '<span class="live-info-tile__title a">41,3 von 147,2km</span>'
+          '<span class="fst--bodytext--small b">Pisten</span>')
+    deo = snowd.ADAPTERS["soelden"].parse(r, de, "t")
+    check("German page parses the same depth", deo.snow["base_depth_cm"], 48.0)
+    check("German page parses the same lifts",
+          (deo.snow["lifts_open"], deo.snow["lifts_total"]), (14, 31))
+    check("slope kilometres are not mistaken for lifts",
+          deo.snow["lifts_total"] != 147, True)
+    # "Pisten" is kilometres open, not a count, so it has nowhere to go.
+    check("piste kilometres are not filed as a run count",
+          out.snow.get("runs_open", ""), "")
+    check("no timestamp is published", out.snow["report_updated_utc"], "")
+
+    check("no tiles -> no_report",
+          snowd.ADAPTERS["soelden"].parse(r, "<html>nope</html>", "t").status, "no_report")
+    check("tiles but no snow tile -> no_report",
+          snowd.ADAPTERS["soelden"].parse(
+              r, '<span class="live-info-tile__title x">5,0 °C</span>'
+                 '<span class="fst--bodytext--small y">Wetter</span>', "t").status,
+          "no_report")
+
+
 # ---------------------------------------------------------------- dedup
 def t_dedup():
     a = {"resort_id": "vail", "report_updated_utc": "2026-11-04T12:34:00Z",
@@ -403,7 +477,7 @@ def t_registry():
 def main() -> int:
     for fn in (t_seasons, t_timestamps, t_numbers, t_extraction,
                t_parse_page, t_units, t_text, t_rcr, t_telluride,
-               t_rusutsu, t_kitzsteinhorn,
+               t_rusutsu, t_kitzsteinhorn, t_arlberg, t_soelden,
                t_dedup, t_forecast_payload, t_registry):
         fn()
     if FAILED:

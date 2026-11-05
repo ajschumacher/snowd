@@ -49,8 +49,8 @@ rusutsu,Rusutsu Resort,Partner,partner,JP,Japan,Hokkaido,rusutsu.com,https://rus
 verbier-4-vallees,Verbier 4 Vallees,Partner,partner,CH,Europe,Valais,verbier4vallees.ch,,46.096111,7.228611,Europe/Zurich,
 crans-montana,Crans-Montana,Partner,partner,CH,Europe,Valais,crans-montana.ch,,46.3125,7.479167,Europe/Zurich,
 andermatt-sedrun-disentis,Andermatt-Sedrun-Disentis,Partner,partner,CH,Europe,Uri,andermatt-sedrun-disentis.ch,,46.636944,8.593889,Europe/Zurich,
-ski-arlberg,Ski Arlberg,Partner,partner,AT,Europe,Tyrol,skiarlberg.at,,47.129167,10.213889,Europe/Vienna,
-soelden,Solden,Partner,partner,AT,Europe,Tyrol,soelden.com,,46.968056,11.0075,Europe/Vienna,
+ski-arlberg,Ski Arlberg,Partner,partner,AT,Europe,Tyrol,skiarlberg.at,https://www.skiarlberg.at/en/live-info/snow-avalanche-report,47.129167,10.213889,Europe/Vienna,arlberg
+soelden,Solden,Partner,partner,AT,Europe,Tyrol,soelden.com,https://www.soelden.com/de/live-infos/schneebericht,46.968056,11.0075,Europe/Vienna,soelden
 silvretta-montafon,Silvretta Montafon,Partner,partner,AT,Europe,Vorarlberg,silvretta-montafon.at,,47.078611,9.948611,Europe/Vienna,
 zillertal,Zillertal,Partner,partner,AT,Europe,Tyrol,zillertal.at,,47.228611,11.858333,Europe/Vienna,
 saalbach,Saalbach Hinterglemm Leogang Fieberbrunn,Partner,partner,AT,Europe,Salzburg,saalbach.com,,47.391667,12.636111,Europe/Vienna,

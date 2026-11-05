@@ -19,6 +19,11 @@ resorts, which is the whole point — the four western RCR sites publish byte-fo
                 resort; the deepest wins. Centimetres only.
   kitzsteinhorn Base depth at several measuring stations up the mountain, and
                 nothing else — the highest station wins. Centimetres only.
+  arlberg       Labelled boxes giving valley and mountain depth separately.
+                No timestamp published. Centimetres only.
+  soelden       Labelled tiles on the HOME page — its own snow-report page
+                renders client-side. Depth as a valley-to-mountain range.
+                No timestamp published. Centimetres only.
 
 Unlike Vail, the partner sources publish a single unit, so the other one is
 computed. Every row records which unit it was actually given in
@@ -740,6 +745,137 @@ def parse_kitzsteinhorn(resort: Resort, html: str, observed_at: str) -> FetchRes
     return FetchResult(resort.resort_id, "ok", snow=fill_units(row, "cm"))
 
 
+# ------------------------------------------------------------- ski arlberg
+
+#: Ski Arlberg labels each figure in a sibling div. Valley and mountain are
+#: given separately; "mountain" is what every other source in this project
+#: means by base depth.
+ARLBERG_LABELS = {"mountain": "base_depth"}
+
+_ARL_ITEM = re.compile(
+    r'snow-report-box__item">\s*<div>\s*([^<]{3,30}?)\s*</div>.*?'
+    r'snow-report-box__item-info">(.*?)</div>', re.S | re.I)
+_ARL_LIFTS = re.compile(r'Lift facilities.*?live-info__content.*?<div>\s*(\d+)\s+open', re.S | re.I)
+
+
+def arlberg_url(resort: Resort) -> str:
+    return resort.snow_report_url
+
+
+def parse_arlberg(resort: Resort, html: str, observed_at: str) -> FetchResult:
+    items = {m.group(1).strip().lower(): _text(m.group(2)) for m in _ARL_ITEM.finditer(html)}
+    if not items:
+        return FetchResult(resort.resort_id, "no_report", "no snow-report items on the page")
+
+    row: dict = {
+        "observed_at": observed_at,
+        "season": season_for(datetime.now(timezone.utc), resort.hemisphere),
+        "resort_id": resort.resort_id,
+        # The page publishes no timestamp at all, so de-duplication falls back
+        # to the values plus the fetch date: one row a day unless they move.
+        "report_updated_utc": "",
+        "report_updated_text": "",
+        "overall_conditions": "",
+        "summit_readings": "true",
+        "vail_resort_id": "",
+    }
+    cond = items.get("consistency", "")
+    if cond.lower() not in ("", "no info", "-", "--"):
+        row["overall_conditions"] = cond
+
+    published = 0
+    for stem in DEPTH_STEMS:
+        row[f"{stem}_in"] = ""
+        row[f"{stem}_cm"] = ""
+    for label, stem in ARLBERG_LABELS.items():
+        v = _num(items.get(label))
+        if v is not None:
+            row[f"{stem}_cm"] = v
+            published += 1
+
+    # "New snow" is deliberately not mapped. It sits beside "Last snowfall:
+    # Wednesday" with no stated window, so it is not necessarily a 24-hour
+    # figure, and filing it as snow_24h would be inventing a measurement.
+
+    m = _ARL_LIFTS.search(html)
+    if m:
+        row["lifts_open"] = int(m.group(1))
+
+    if published == 0:
+        return FetchResult(resort.resort_id, "no_report", "snow boxes present but no depth")
+    return FetchResult(resort.resort_id, "ok", snow=fill_units(row, "cm"))
+
+
+# ---------------------------------------------------------------- soelden
+
+#: Sölden's own Schneebericht page renders client-side; its homepage does not,
+#: and carries the same figures as labelled tiles. So this adapter reads the
+#: homepage while the registry still points a reader at the report page.
+_SOL_TILE = re.compile(
+    r'live-info-tile__title[^>]*>\s*([^<]*?)\s*</span>\s*'
+    r'<span[^>]*fst--bodytext--small[^>]*>\s*([^<]*?)\s*</span>', re.S)
+_SOL_RANGE = re.compile(r'(\d+(?:[.,]\d+)?)\s*-\s*(\d+(?:[.,]\d+)?)\s*cm')
+#: "14 of 31" / "14 von 31" — the separator word is whichever language was
+#: served, so it is matched as "not digits" rather than spelled out. Slopes
+#: read "41.3 of 147.2km" and are excluded by the trailing unit.
+_SOL_OF = re.compile(r'^(\d+(?:[.,]\d+)?)\s*[^\d]{1,6}\s*(\d+(?:[.,]\d+)?)\s*$')
+#: whichever language the tiles came back in
+_SOL_LIFT_LABELS = ("lifts", "lifte")
+
+
+def soelden_url(resort: Resort) -> str:
+    # Pinned to a locale. Left to negotiate, the site answers our
+    # Accept-Language header with the English page, so a German label would
+    # match in a browser and never in the fetch.
+    return f"https://www.{resort.domain}/en"
+
+
+def parse_soelden(resort: Resort, html: str, observed_at: str) -> FetchResult:
+    tiles = {label.strip().lower(): value.strip() for value, label in _SOL_TILE.findall(html)}
+    if not tiles:
+        return FetchResult(resort.resort_id, "no_report", "no live-info tiles on the page")
+
+    row: dict = {
+        "observed_at": observed_at,
+        "season": season_for(datetime.now(timezone.utc), resort.hemisphere),
+        "resort_id": resort.resort_id,
+        "report_updated_utc": "",      # no stamp published; see parse_arlberg
+        "report_updated_text": "",
+        "overall_conditions": "",
+        "summit_readings": "true",
+        "vail_resort_id": "",
+    }
+    for stem in DEPTH_STEMS:
+        row[f"{stem}_in"] = ""
+        row[f"{stem}_cm"] = ""
+
+    # "0-48 cm" is valley to mountain, not a margin of error. The upper figure
+    # is the mountain, which is what base depth means everywhere else here.
+    # Found by the shape of the value rather than by its label, since "cm" is
+    # the same word in every language this page is served in.
+    published = 0
+    for value in tiles.values():
+        m = _SOL_RANGE.search(value)
+        if m:
+            row["base_depth_cm"] = _num(m.group(2).replace(",", "."))
+            published += 1
+            break
+
+    for label in _SOL_LIFT_LABELS:
+        lifts = _SOL_OF.search(tiles.get(label, ""))
+        if lifts:
+            row["lifts_open"] = int(float(lifts.group(1).replace(",", ".")))
+            row["lifts_total"] = int(float(lifts.group(2).replace(",", ".")))
+            break
+    # "Pisten" is given in kilometres open, not a count of runs, so it has
+    # nowhere to go in a schema whose run columns are counts.
+
+    if published == 0:
+        return FetchResult(resort.resort_id, "no_report",
+                           "tiles present but no snow figure (likely out of season)")
+    return FetchResult(resort.resort_id, "ok", snow=fill_units(row, "cm"))
+
+
 # ---------------------------------------------------------------- dispatch
 
 
@@ -757,6 +893,8 @@ ADAPTERS: dict[str, Adapter] = {
     "telluride": Adapter(telluride_url, parse_telluride),
     "rusutsu": Adapter(rusutsu_url, parse_rusutsu),
     "kitzsteinhorn": Adapter(kitzsteinhorn_url, parse_kitzsteinhorn),
+    "arlberg": Adapter(arlberg_url, parse_arlberg),
+    "soelden": Adapter(soelden_url, parse_soelden),
 }
 
 

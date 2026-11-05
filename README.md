@@ -5,7 +5,7 @@ history as CSV in this repo, and ships a static map + table viewer.
 
 **Live site: <https://planspace.org/snowd/>** — updated every four hours.
 
-![resorts](https://img.shields.io/badge/resorts-59-blue) ![reporting](https://img.shields.io/badge/with%20snow%20data-42-blue) ![source](https://img.shields.io/badge/source-resort%20snow%20reports-blue)
+![resorts](https://img.shields.io/badge/resorts-59-blue) ![reporting](https://img.shields.io/badge/with%20snow%20data-44-blue) ![source](https://img.shields.io/badge/source-resort%20snow%20reports-blue)
 
 ## Why this exists
 
@@ -69,6 +69,21 @@ season total, no recent snowfall. The highest station wins, flagged
 `summit_readings`. Its table is headed by a day and month with **no year**, so
 the adapter picks the year that puts the date nearest today. Centimetres only.
 
+**`arlberg`** (1 resort) — labelled boxes giving valley and mountain depth
+separately; mountain is what base depth means everywhere else here. Its "New
+snow" figure is deliberately **not** captured: it sits beside "Last snowfall:
+Wednesday" with no stated window, so filing it as 24-hour snowfall would be
+inventing a measurement. Centimetres only.
+
+**`soelden`** (1 resort) — read off the **home page**, because its own
+Schneebericht page renders client-side and the home-page tiles do not. Depth
+comes as a valley-to-mountain range (`0-48 cm`); the upper figure is the
+mountain. The locale is pinned to `/en`: left to negotiate, the site answers
+our `Accept-Language` with English, so a German label would match in a browser
+and never in the fetch. The snow tile is found by its `cm` value rather than
+its label, and "14 of 31" / "14 von 31" is matched as "digits, not-digits,
+digits", so either language parses. Centimetres only.
+
 ### Units, and what "converted" means
 
 Only Vail publishes both units. The partner sources publish one, so the other
@@ -89,8 +104,10 @@ permitted by its site's `robots.txt`.
 | Telluride | 1 | ✅ full | `telluride` |
 | Rusutsu | 1 | season total | `rusutsu` |
 | Kitzsteinhorn | 1 | base depth | `kitzsteinhorn` |
+| Ski Arlberg | 1 | base depth | `arlberg` |
+| Sölden | 1 | base depth, lifts | `soelden` |
 | Vail-operated, Australia | 3 | location only | — |
-| Partner / international | 14 | location only | — |
+| Partner / international | 12 | location only | — |
 
 Not every source publishes every metric, and the schema does not pretend
 otherwise: Kitzsteinhorn gives a base depth and nothing else, Rusutsu a season
@@ -99,7 +116,7 @@ late November). A resort that reports some metrics but not the one the map is
 coloured by shows as a filled grey marker reading "not reported", distinct from
 the hollow "no report yet".
 
-The 17 resorts without snow data are **mapped and in the table** with
+The 15 resorts without snow data are **mapped and in the table** with
 coordinates and metadata, marked "no report yet". Adding one means writing an
 adapter and setting its `data_source` in `data/resorts.csv`; no schema or UI
 change is needed.
@@ -109,10 +126,18 @@ Falls Creek and Mount Hotham ski the southern winter, and their sites serve
 summer content until June. RCR's two Quebec resorts (Mont-Sainte-Anne,
 Stoneham) run the same `refresh.php` mechanism under different field names, and
 publish no base depth at all while closed — worth revisiting once they open in
-December. The rest (the remaining Austrian, Swiss, French and Italian partners,
-and Hakuba) are each a separate piece of work, and several render client-side.
-Three Austrian sites sit behind the same vendor, Intermaps, which may or may
-not mean a shared endpoint — unprobed so far.
+December. The rest (Verbier, Crans-Montana, Les 3 Vallées, Skirama, Saalbach,
+Zillertal, Hakuba, Silvretta Montafon and Schmitten) publish nothing in their
+server HTML at all — every figure arrives client-side — so each would need a
+headless browser rather than another parser.
+
+**On shared vendors.** Intermaps, which three of these sites use, does expose a
+single uniform endpoint — `winter.intermaps.com/{map}/data?lang=en`, returning
+every lift and slope with a status and a `lastUpdate`. It carries **no snow
+depth**, so it would add lift counts to one resort already read here and give
+two others lift-only rows in a snow tracker. Not taken. feratel turned out not
+to be a snow vendor on these sites at all: Andermatt mentions it only as a
+guest-card string, and fetches its own `snowHeightMountain` client-side.
 
 Early in the season most North American resorts have not published a report
 yet — they appear as hollow markers and fill in as they open. Some still show
@@ -199,6 +224,12 @@ One row per resort per published report. Both units for every metric:
 `observed_at` is when we fetched; `report_updated_utc` is when the resort says
 it last refreshed. The gap between them is what staleness is measured on.
 
+Some sources publish no update time at all (Ski Arlberg, Sölden). For those,
+de-duplication falls back to the values plus the fetch date — one row a day
+unless the numbers move — and the viewer marks the age it shows, because
+"just now" under a column headed *Updated* would claim a freshness the resort
+never stated.
+
 `units_native` is `in,cm` where the source published both and `in` or `cm`
 where it published one — so a converted figure is always identifiable as one.
 The lift and run counts are blank unless the source publishes them.
@@ -276,6 +307,9 @@ tests/     fixtures/ — a captured response per adapter, so the parsers are
 - **No forecast for the partner resorts.** Vail's page ships a structured
   5-day forecast; RCR publishes only a two-day temperature outlook and
   Telluride an unstructured widget, so neither is captured.
+- **Partial reports are normal.** Four partner sources publish a base depth and
+  little else. Those resorts sort and map on base depth and show "not reported"
+  for the rest, rather than a zero that was never measured.
 - **No backfill.** History starts the day the first fetch ran; the charts fill
   in from there.
 - **Partner resorts** have no snow source yet (see Coverage).

@@ -142,6 +142,8 @@ tbody tr.row.sel td:first-child{box-shadow:inset 3px 0 0 var(--series-1)}
 .dim{color:var(--text-muted)}
 .unit{font-size:11px;color:var(--text-muted);margin-left:1px}
 .unit.conv{border-bottom:1px dotted var(--text-muted);cursor:help}
+/* a fetch time standing in for an update time the resort never published */
+.polled{border-bottom:1px dotted currentColor;cursor:help;opacity:.85}
 .stale{color:var(--warn);background:var(--warn-bg);border-radius:5px;padding:1px 5px;font-size:11px;white-space:nowrap}
 .nodata-pill{color:var(--text-muted);font-size:11.5px}
 
@@ -635,11 +637,16 @@ function render(){
   rows.forEach(function(r){
     var obs = latest(r.id), has = reporting(r.id);
     var isFav = S.favs.indexOf(r.id) !== -1;
-    var age = obs ? daysAgo(obs.up || obs.t) : null;
+    var age = obs ? daysAgo(readingTime(obs)) : null;
+    // A few sources publish no update time of their own. Falling back to when
+    // we fetched would read "just now" under a column headed Updated, which
+    // claims a freshness the resort never stated — so say which one it is.
+    var polled = !!(obs && !obs.up);
+    var upTitle = esc(obs && obs.upText ? obs.upText
+      : (polled ? "This resort publishes no update time; this is when we last fetched it." : ""));
     var upCell = !has ? '<span class="nodata-pill">not yet</span>'
-      : (age !== null && age > 3
-          ? '<span class="stale" title="'+esc(obs.upText||"")+'">'+ago(obs.up||obs.t)+'</span>'
-          : '<span class="dim" title="'+esc(obs.upText||"")+'">'+ago(obs.up||obs.t)+'</span>');
+      : '<span class="'+(age !== null && age > 3 ? "stale" : "dim")+(polled ? " polled" : "")+'"'+
+        ' title="'+upTitle+'">'+ago(readingTime(obs))+'</span>';
     html +=
       '<tr class="row'+(r.id===S.open?" sel":"")+'" data-id="'+r.id+'" tabindex="0" aria-expanded="'+(S.open===r.id)+'">'+
         '<td class="l"><button class="star" aria-pressed="'+isFav+'" data-fav="'+r.id+'" '+
@@ -734,15 +741,21 @@ function detailHTML(r){
   // an old report, not last season's data leaking in. The "Updated" column
   // already carries its age, flagged amber once it is more than a few days
   // old. What is worth explaining is the absence of data entirely.
-  var absence = "";
-  if(has && isConverted(obs, null)){
-    absence = '<div class="cnote">'+esc(convNote(obs))+'</div>';
-  }
+  // Caveats accumulate: a resort can publish one unit *and* no update time,
+  // and neither note may quietly replace the other.
+  var notes = [];
   if(!has){
-    absence = '<div class="cnote">'+(r.src === "vail_cms"
+    notes.push(r.src === "vail_cms"
       ? "This resort has not published a snow report yet this season."
-      : "No machine-readable snow source for this resort yet — only its location is tracked.")+'</div>';
+      : "No machine-readable snow source for this resort yet — only its location is tracked.");
+  } else {
+    if(isConverted(obs, null)) notes.push(convNote(obs));
+    if(obs && !obs.up) notes.push("This resort publishes no update time, so the age shown is "+
+      "when we last fetched it, not when the resort last refreshed.");
   }
+  var absence = notes.map(function(n){
+    return '<div class="cnote">'+esc(n)+'</div>';
+  }).join("");
 
   return '<div class="detail-in">'+absence+'<div class="dgrid">'+sg+'</div>'+openHTML+
     '<div class="charts">'+
