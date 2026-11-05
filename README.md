@@ -88,6 +88,13 @@ python3 -m http.server 8777 --directory site
 `site/data.js` rather than a `fetch()` of the CSVs, which browsers block over
 `file://`.
 
+Because those are two separately cached files, the page loads `data.js` with a
+cache-busting query when served over http(s) (never on `file://`, where some
+browsers read the query as part of the filename). Without it a browser can
+hold a stale `data.js` against a fresh `index.html` and quietly show old
+numbers — and this site is served with `cache-control: max-age=2678400`, so
+"stale" means up to 31 days.
+
 ### Keeping it updated
 
 `.github/workflows/update.yml` runs every four hours (at :45), commits any new
@@ -156,6 +163,21 @@ Season labels are derived, not hardcoded: northern-hemisphere seasons get a
 span (`2026-27`, cutover 1 July), southern-hemisphere a single year (`2026`).
 Files are per-season and the viewer discovers them from the directory, so a
 future season needs no code change — just keep running the fetch.
+
+A row's season comes from **the report's own date, not the date we fetched
+it**. Resorts leave last season's final report up all summer, so a report
+stamped June 2026 that we pull in November 2026 is 2025-26 data; filing it by
+fetch date would plant a bogus zero reading at the start of 2026-27 and make
+the resort look like it had opened and reported nothing. Those rows live in
+`snow_2025-26.csv`, and the resort correctly reads "not yet" for the current
+season until it actually publishes. Forecast rows likewise take the season of
+the day they forecast.
+
+The same principle runs through the viewer: charts are plotted against the
+resort's publish time, a resort's history is ordered by it, and "newest
+report" in the header is the freshest publish time across all resorts.
+`observed_at` records only when we polled, and is a fallback for the rare
+resort that publishes no timestamp at all.
 
 ## Layout
 

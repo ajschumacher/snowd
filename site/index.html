@@ -272,9 +272,8 @@ footer a{color:var(--accent)}
 <div class="tip" id="tip" role="status" aria-live="polite"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="data.js"></script>
 <script>
-(function(){
+window.__snowdBoot = function(){
 "use strict";
 var D = window.SNOWD_DATA;
 var LS = {
@@ -308,7 +307,22 @@ var byId = {};
 D.resorts.forEach(function(r){ byId[r.id] = r; });
 
 /* ------------------------------------------------ helpers */
-function series(id){ var s = D.snow[S.season]; return (s && s[id]) || []; }
+/** When a reading is *for* — the resort's own publish time, not when we
+ *  happened to poll. A report published at 23:08 and fetched at 01:04 belongs
+ *  at 23:08; `observed_at` is only a fallback for resorts that publish no
+ *  timestamp of their own. This is what the charts plot and what orders a
+ *  resort's history. */
+function readingTime(obs){ return (obs && (obs.up || obs.t)) || ""; }
+
+function series(id){
+  var s = D.snow[S.season];
+  var a = (s && s[id]) || [];
+  // ordered by the resort's publish time, so "latest" is the newest report
+  return a.slice().sort(function(x, y){
+    var a1 = readingTime(x), b1 = readingTime(y);
+    return a1 < b1 ? -1 : a1 > b1 ? 1 : 0;
+  });
+}
 function latest(id){ var a = series(id); return a.length ? a[a.length-1] : null; }
 function forecast(id){ var f = D.forecast[S.season]; return (f && f[id]) || []; }
 
@@ -652,7 +666,8 @@ function drawChart(svg, id, metric){
   svg.setAttribute("width", W); svg.setAttribute("height", H);
 
   var pts = raw.map(function(o){
-    return { x: Date.parse(o.t), y: val(o, metric), obs: o };
+    // x is the resort's own publish time, not our fetch time
+    return { x: Date.parse(readingTime(o)), y: val(o, metric), obs: o };
   }).filter(function(p){ return !isNaN(p.x) && p.y !== null; });
   if(!pts.length) return;
 
@@ -819,17 +834,19 @@ window.addEventListener("resize", function(){ if(S.open) drawCharts(S.open); });
  *  always there, the key is just a convenience.
  */
 function freshest(){
-  if(D.data_as_of) return D.data_as_of;
-  if(D.generated_at) return D.generated_at;
   var best = "";
   var seasons = D.snow || {};
   Object.keys(seasons).forEach(function(s){
     var per = seasons[s] || {};
     Object.keys(per).forEach(function(id){
-      (per[id] || []).forEach(function(o){ if(o && o.t && o.t > best) best = o.t; });
+      (per[id] || []).forEach(function(o){
+        var t = readingTime(o);
+        if(t > best) best = t;
+      });
     });
   });
-  return best;
+  // the payload keys are only a fallback for data with no usable timestamps
+  return best || D.data_as_of || D.generated_at || "";
 }
 
 function setSub(){
@@ -837,7 +854,7 @@ function setSub(){
   var el = document.getElementById("sub");
   var asOf = freshest();
   el.textContent = D.resorts.length + " Epic Pass resorts · " + rep + " reporting snow for " +
-    S.season + " · data as of " + (asOf ? ago(asOf) : "no data yet");
+    S.season + " · newest report " + (asOf ? ago(asOf) : "none yet");
   var noSrc = D.resorts.filter(function(r){ return r.src !== "vail_cms"; }).length;
   document.getElementById("foot").innerHTML =
     "Season <strong>"+esc(S.season)+"</strong>. "+
@@ -866,6 +883,35 @@ function setSub(){
   render();
   setSub();
 })();
+};
+</script>
+
+<script>
+/* Load the data last, with a cache-buster.
+ *
+ * data.js stays a plain <script> rather than a fetch() so the page still works
+ * opened straight off disk, where fetch() of a local file is blocked. The cost
+ * is that index.html and data.js are cached independently: a browser holding
+ * an old data.js against a fresh index.html silently shows stale numbers, and
+ * this site is served with cache-control max-age=2678400 (31 days), so that
+ * sticks for a month.
+ *
+ * The query is added only over http(s) — on file:// some browsers treat it as
+ * part of the filename and fail to find the file.
+ */
+(function(){
+  var src = "data.js";
+  if(location.protocol === "http:" || location.protocol === "https:"){
+    src += "?v=" + Date.now();
+  }
+  var s = document.createElement("script");
+  s.src = src;
+  s.onload = function(){ window.__snowdBoot(); };
+  s.onerror = function(){
+    var el = document.getElementById("sub");
+    if(el) el.textContent = "Could not load data.js — run scripts/build_site_data.py.";
+  };
+  document.head.appendChild(s);
 })();
 </script>
 </body>

@@ -1,0 +1,8 @@
+observed_at,season,resort_id,report_updated_utc,report_updated_text,base_depth_in,base_depth_cm,season_total_in,season_total_cm,snow_12h_in,snow_12h_cm,snow_24h_in,snow_24h_cm,snow_48h_in,snow_48h_cm,snow_7d_in,snow_7d_cm,overall_conditions,summit_readings,vail_resort_id
+2026-11-04T19:14:42Z,2025-26,breckenridge,2026-06-23T22:22:00Z,"Updated June 23, 2026 at 4:22 PM MDT",0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,Low Snowfall,false,4
+2026-11-04T19:14:42Z,2025-26,hunter,2026-06-23T22:22:00Z,"Updated June 23, 2026 at 6:22 PM EDT",0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,Low Snowfall,false,73
+2026-11-04T19:14:42Z,2025-26,mount-snow,2026-06-23T22:22:00Z,"Updated June 23, 2026 at 6:22 PM EDT",0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,Low Snowfall,false,0
+2026-11-04T19:14:42Z,2025-26,okemo,2026-06-23T22:24:00Z,"Updated June 23, 2026 at 6:24 PM EDT",0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,Low Snowfall,false,86
+2026-11-04T19:14:42Z,2025-26,park-city,2026-06-23T22:24:00Z,"Updated June 23, 2026 at 4:24 PM MDT",0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,Low Snowfall,false,53
+2026-11-04T19:14:42Z,2025-26,stevens-pass,2026-06-23T22:24:00Z,"Updated June 23, 2026 at 3:24 PM PDT",0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,,false,44
+2026-11-04T19:14:42Z,2025-26,stowe,2026-06-23T22:21:00Z,"Updated June 23, 2026 at 6:21 PM EDT",0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,,false,85

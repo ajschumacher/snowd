@@ -289,11 +289,22 @@ def parse_page(resort: Resort, html: str, observed_at: str) -> FetchResult:
         )
 
     updated_text = str(data.get("LastUpdatedText") or "").strip()
+    report_utc = parse_report_timestamp(updated_text, resort.tz) or ""
+
+    # Season comes from the report's own date, not from when we fetched it.
+    # Resorts leave last season's final report up through the summer, so a
+    # report stamped June 2026 pulled in November 2026 is 2025-26 data and
+    # belongs in that season's file — not filed as a 2026-27 reading of zero.
+    if report_utc:
+        stamp = datetime.strptime(report_utc, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    else:
+        stamp = datetime.now(timezone.utc)
+
     row: dict = {
         "observed_at": observed_at,
-        "season": season_for(datetime.now(timezone.utc), resort.hemisphere),
+        "season": season_for(stamp, resort.hemisphere),
         "resort_id": resort.resort_id,
-        "report_updated_utc": parse_report_timestamp(updated_text, resort.tz) or "",
+        "report_updated_utc": report_utc,
         "report_updated_text": updated_text,
         "overall_conditions": str(data.get("OverallSnowConditions") or "").strip(),
         "summit_readings": "true" if settings.get("UseSummitSnowReadings") else "false",
@@ -319,7 +330,6 @@ def _parse_forecast(resort: Resort, forecasts, observed_at: str) -> list[dict]:
     rows: list[dict] = []
     if not isinstance(forecasts, list):
         return rows
-    season = season_for(datetime.now(timezone.utc), resort.hemisphere)
     for block in forecasts:
         if not isinstance(block, dict):
             continue
@@ -330,9 +340,11 @@ def _parse_forecast(resort: Resort, forecasts, observed_at: str) -> list[dict]:
             date = raw_date[:10]
             if not re.match(r"\d{4}-\d{2}-\d{2}$", date):
                 continue
+            # a forecast belongs to the season of the day it forecasts
+            day_dt = datetime.strptime(date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
             rows.append({
                 "observed_at": observed_at,
-                "season": season,
+                "season": season_for(day_dt, resort.hemisphere),
                 "resort_id": resort.resort_id,
                 "forecast_date": date,
                 "high_f": _blank(_num(day.get("HighTempStandard"))),

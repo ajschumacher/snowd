@@ -113,6 +113,27 @@ def t_parse_page():
     check("missing metric is blank", ok.snow["snow_24h_in"], "")
     check("timestamp parsed", ok.snow["report_updated_utc"], "2026-11-04T12:34:00Z")
 
+    check("season comes from the report date", ok.snow["season"], "2026-27")
+
+    # Resorts leave last season's final report up all summer. Pulled in
+    # November, a June report is still 2025-26 data and must not be filed as a
+    # 2026-27 reading of zero.
+    stale = snowd.parse_page(r, """
+        FR.snowReportData = {"BaseDepth":{"Inches":"0","Centimeters":"0"},
+          "CurrentSeason":{"Inches":"0","Centimeters":"0"},
+          "LastUpdatedText":"Updated June 23, 2026 at 4:24 PM MDT"};
+      """, "2026-11-05T01:04:55Z")
+    check("stale June report files under the previous season",
+          stale.snow["season"], "2025-26")
+    check("...while observed_at still records when we fetched it",
+          stale.snow["observed_at"], "2026-11-05T01:04:55Z")
+
+    # with no parseable timestamp, fall back to fetch time
+    no_stamp = snowd.parse_page(r, 'FR.snowReportData = {"BaseDepth":{"Inches":"5"}};', "t")
+    check("no timestamp still parses", no_stamp.status, "ok")
+    check("no timestamp leaves report_updated_utc blank",
+          no_stamp.snow["report_updated_utc"], "")
+
     # pre-season: page renders without the component at all
     check("no component -> no_report",
           snowd.parse_page(r, "<html>nothing here</html>", "t").status, "no_report")
