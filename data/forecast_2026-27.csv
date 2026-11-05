@@ -246,7 +246,6 @@ observed_at,season,resort_id,forecast_date,high_f,low_f,high_c,low_c,snow_day_in
 2026-11-05T15:48:52Z,2026-27,boston-mills-brandywine,2026-11-05,62.0,53.0,17.0,12.0,0,0,0,0,Mostly Cloudy,SW,7.55
 2026-11-05T15:48:52Z,2026-27,boston-mills-brandywine,2026-11-06,53.0,42.0,11.0,5.0,0,0,0,0,Cloudy,W,5.97
 2026-11-05T15:48:52Z,2026-27,boston-mills-brandywine,2026-11-07,46.0,40.0,7.0,4.0,0,0,0,0,Cloudy,W,7.26
-2026-11-05T15:48:52Z,2026-27,boston-mills-brandywine,2026-11-08,54.0,38.0,12.0,3.0,0,0,0,0,Partly Cloudy,WSW,8.02
 2026-11-05T15:48:52Z,2026-27,boston-mills-brandywine,2026-11-09,57.0,42.0,14.0,5.0,0,0,0,0,Mostly Clear,W,5.92
 2026-11-05T15:48:52Z,2026-27,breckenridge,2026-11-05,41.0,22.0,5.0,-6.0,0-1,0,0-2,0,Mostly Clear,S,2.91
 2026-11-05T15:48:52Z,2026-27,breckenridge,2026-11-06,42.0,26.0,5.0,-4.0,0-1,0,0-2,0,Cloudy,W,2.56
@@ -295,7 +294,6 @@ observed_at,season,resort_id,forecast_date,high_f,low_f,high_c,low_c,snow_day_in
 2026-11-05T15:48:52Z,2026-27,keystone,2026-11-09,54.0,28.0,12.0,-2.0,0,0,0,0,Mostly Clear,WSW,2.57
 2026-11-05T15:48:52Z,2026-27,kirkwood,2026-11-05,47.0,31.0,8.0,-1.0,0,0,0,0,Mostly Clear,NE,5.71
 2026-11-05T15:48:52Z,2026-27,kirkwood,2026-11-06,50.0,32.0,10.0,0.0,0,0,0,0,Mostly Clear,E,7.62
-2026-11-05T15:48:52Z,2026-27,kirkwood,2026-11-07,56.0,39.0,13.0,3.0,0,0,0,0,Mostly Clear,S,4.95
 2026-11-05T15:48:52Z,2026-27,kirkwood,2026-11-08,53.0,39.0,11.0,3.0,0,0,0,0,Mostly Clear,SW,6.79
 2026-11-05T15:48:52Z,2026-27,kirkwood,2026-11-09,51.0,37.0,10.0,3.0,0,0,0,0,Mostly Clear,SW,6.58
 2026-11-05T15:48:52Z,2026-27,laurel-mountain,2026-11-05,62.0,51.0,17.0,11.0,0,0,0,0,Rain,SW,11.56
@@ -390,3 +388,5 @@ observed_at,season,resort_id,forecast_date,high_f,low_f,high_c,low_c,snow_day_in
 2026-11-05T15:48:52Z,2026-27,wilmot,2026-11-07,48.0,31.0,9.0,-1.0,0,0,0,0,Mostly Clear,W,6.58
 2026-11-05T15:48:52Z,2026-27,wilmot,2026-11-08,57.0,38.0,14.0,3.0,0,0,0,0,Mostly Clear,W,10.4
 2026-11-05T15:48:52Z,2026-27,wilmot,2026-11-09,61.0,38.0,16.0,3.0,0,0,0,0,Partly Cloudy,SW,8.62
+2026-11-05T15:50:56Z,2026-27,boston-mills-brandywine,2026-11-08,55.0,38.0,12.0,3.0,0,0,0,0,Partly Cloudy,WSW,8.02
+2026-11-05T15:50:56Z,2026-27,kirkwood,2026-11-07,55.0,39.0,13.0,3.0,0,0,0,0,Mostly Clear,S,4.95
