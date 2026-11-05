@@ -1,0 +1,62 @@
+{
+ "_comment": "Trimmed excerpt of https://mtnpowder.com/feed?resortId=60 (Mammoth) captured 2026-11-05. Trails, lifts and parking are dropped; the snow-bearing fields are verbatim.",
+ "Name": "Mammoth Mountain",
+ "LastUpdate": "2026-11-05T10:58:52-0800",
+ "OperatingStatus": "Closed",
+ "SnowReport": {
+  "LastUpdate": "2026-11-05T10:01:12-0800",
+  "BaseConditions": "Variable Conditions",
+  "SeasonTotalIn": "12",
+  "SeasonTotalCm": "30",
+  "BaseArea": {
+   "Name": "Main Lodge",
+   "SinceLiftsClosedIn": "0",
+   "BaseIn": "12",
+   "BaseCm": "30",
+   "Last24HoursIn": "0",
+   "Last48HoursIn": "0",
+   "Last72HoursIn": "0",
+   "Last7DaysIn": "--",
+   "SinceLiftsClosedCm": "0",
+   "Last24HoursCm": "0",
+   "Last48HoursCm": "0",
+   "Last72HoursCm": "0",
+   "Last7DaysCm": "0"
+  },
+  "MidMountainArea": {
+   "Name": "McCoy Station",
+   "SinceLiftsClosedIn": "0",
+   "BaseIn": "15",
+   "BaseCm": "38",
+   "Last24HoursIn": "0",
+   "Last48HoursIn": "0",
+   "Last72HoursIn": "0",
+   "Last7DaysIn": "--",
+   "SinceLiftsClosedCm": "0",
+   "Last24HoursCm": "0",
+   "Last48HoursCm": "0",
+   "Last72HoursCm": "0",
+   "Last7DaysCm": "0"
+  },
+  "SummitArea": {
+   "Name": "The Summit",
+   "SinceLiftsClosedIn": "0",
+   "BaseIn": "20",
+   "BaseCm": "51",
+   "Last24HoursIn": "0",
+   "Last48HoursIn": "0",
+   "Last72HoursIn": "0",
+   "Last7DaysIn": "--",
+   "SinceLiftsClosedCm": "0",
+   "Last24HoursCm": "0",
+   "Last48HoursCm": "0",
+   "Last72HoursCm": "0",
+   "Last7DaysCm": "0"
+  },
+  "TotalOpenLifts": 2,
+  "TotalLifts": 25,
+  "TotalOpenTrails": 3,
+  "TotalTrails": 181,
+  "GroomedTrails": 0
+ }
+}

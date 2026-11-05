@@ -24,6 +24,9 @@ gently and assume any disagreement is ours, not theirs.
                 nothing else — the highest station wins. Centimetres only.
   arlberg       Labelled boxes giving valley and mountain depth separately.
                 No timestamp published. Centimetres only.
+  mtn_powder    Alterra's resorts, all from one public JSON feed keyed by a
+                resortId. Dual-unit like Vail, with base depth at three
+                elevations, lift and trail counts, and its own update time.
   soelden       Labelled tiles on the HOME page — its own snow-report page
                 renders client-side. Depth as a valley-to-mountain range.
                 No timestamp published. Centimetres only.
@@ -79,7 +82,8 @@ class Resort:
     resort_id: str
     name: str
     operator: str
-    epic_tier: str
+    passes: str
+    pass_tier: str
     country: str
     region: str
     state: str
@@ -89,6 +93,12 @@ class Resort:
     longitude: float
     timezone: str
     data_source: str
+    source_id: str = ""
+
+    @property
+    def pass_list(self) -> list[str]:
+        """A resort can be on more than one pass, so this is never a single value."""
+        return [p for p in (x.strip() for x in self.passes.split(",")) if p]
 
     @property
     def hemisphere(self) -> str:
@@ -112,7 +122,8 @@ def load_resorts(path: Path | None = None) -> list[Resort]:
                     resort_id=row["resort_id"],
                     name=row["name"],
                     operator=row["operator"],
-                    epic_tier=row["epic_tier"],
+                    passes=(row.get("passes") or "").strip(),
+                    pass_tier=(row.get("pass_tier") or "").strip(),
                     country=row["country"],
                     region=row["region"],
                     state=row["state"],
@@ -122,6 +133,7 @@ def load_resorts(path: Path | None = None) -> list[Resort]:
                     longitude=float(row["longitude"]),
                     timezone=row["timezone"],
                     data_source=(row.get("data_source") or "").strip(),
+                    source_id=(row.get("source_id") or "").strip(),
                 )
             )
     return out
@@ -268,6 +280,15 @@ def parse_report_timestamp(text: str, fallback_tz: ZoneInfo) -> str | None:
     # "7:26am" -> "7:26 am", so %p can match
     s = re.sub(r"(\d)\s*([AaPp])\.?([Mm])\.?(?=\s|$)", r"\1 \2\3", s)
     s = re.sub(r"\s+", " ", s).strip()
+    # ISO 8601 carrying its own UTC offset ("2026-11-05T10:18:17-0700"), which
+    # the Alterra feed publishes. It needs no fallback timezone, so it is tried
+    # first and returned straight away — the formats below are all naive.
+    for fmt in ("%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%d %H:%M:%S%z"):
+        try:
+            return datetime.strptime(s, fmt).astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        except ValueError:
+            pass
+
     naive = None
     for fmt in (
         "%Y-%m-%d %H:%M", "%Y-%m-%dT%H:%M:%S",
@@ -880,6 +901,121 @@ def parse_soelden(resort: Resort, html: str, observed_at: str) -> FetchResult:
     return FetchResult(resort.resort_id, "ok", snow=fill_units(row, "cm"))
 
 
+# -------------------------------------------------------------- mtn powder
+
+#: Alterra's resorts are all served by one feed. mtnpowder.com/feed?resortId=N
+#: returns JSON with no token, and the site's robots.txt allows it — the v3
+#: endpoint wants a bearer token lifted from the page config, which we don't
+#: need and don't use.
+#:
+#: Like Vail, and unlike every partner source, it gives both units for every
+#: figure, so nothing here is converted. It also publishes base depth at three
+#: elevations, its own update time, and lift and trail counts.
+MTN_POWDER_FEED = "https://mtnpowder.com/feed?resortId={id}"
+
+#: field inside an elevation block -> our column stem
+MP_AREA_METRICS = {
+    "SinceLiftsClosed": "snow_12h",     # new snow since the lifts shut: overnight
+    "Last24Hours": "snow_24h",
+    "Last48Hours": "snow_48h",
+    "Last7Days": "snow_7d",
+    "Base": "base_depth",
+}
+
+
+def mtn_powder_url(resort: Resort) -> str:
+    if not resort.source_id:
+        raise ValueError("mtn_powder needs a source_id (the feed's resortId)")
+    return MTN_POWDER_FEED.format(id=resort.source_id)
+
+
+def _mp_num(block: dict, field: str, unit: str):
+    """`Last24HoursIn` / `Last24HoursCm`, with '--' meaning absent."""
+    if not isinstance(block, dict):
+        return None
+    for key in (f"{field}{unit}", f"{field}{unit.upper()}"):
+        if key in block:
+            return _num(block[key])
+    return None
+
+
+def parse_mtn_powder(resort: Resort, body: str, observed_at: str) -> FetchResult:
+    try:
+        data = json.loads(body)
+    except json.JSONDecodeError:
+        return FetchResult(resort.resort_id, "error", "feed did not return JSON")
+    if not isinstance(data, dict):
+        return FetchResult(resort.resort_id, "error", "feed returned something unexpected")
+
+    report = data.get("SnowReport")
+    if not isinstance(report, dict) or not report:
+        # Plenty of resorts are listed in this feed with a forecast and no
+        # snow report at all — they are in the directory, not reporting.
+        return FetchResult(resort.resort_id, "no_report",
+                           "listed in the feed but publishes no snow report")
+
+    updated_text = str(report.get("LastUpdate") or "").strip()
+    report_utc = parse_report_timestamp(updated_text, resort.tz) or ""
+    stamp = (datetime.strptime(report_utc, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+             if report_utc else datetime.now(timezone.utc))
+
+    # Base depth comes at Base / Mid Mountain / Summit. Take the highest block
+    # that actually carries numbers, which matches what every other source here
+    # calls base depth, and say so with summit_readings.
+    areas = [("SummitArea", True), ("MidMountainArea", False), ("BaseArea", False)]
+    area, at_summit = {}, False
+    for key, is_summit in areas:
+        block = report.get(key)
+        if isinstance(block, dict) and any(
+            _mp_num(block, f, "In") is not None for f in MP_AREA_METRICS
+        ):
+            area, at_summit = block, is_summit
+            break
+
+    conditions = str(report.get("BaseConditions") or "").strip()
+    row: dict = {
+        "observed_at": observed_at,
+        "season": season_for(stamp, resort.hemisphere),
+        "resort_id": resort.resort_id,
+        "report_updated_utc": report_utc,
+        "report_updated_text": updated_text,
+        "overall_conditions": "" if conditions in ("--", "-") else conditions,
+        "summit_readings": "true" if at_summit else "false",
+        "vail_resort_id": "",
+    }
+
+    published = 0
+    for stem in DEPTH_STEMS:
+        row[f"{stem}_in"] = ""
+        row[f"{stem}_cm"] = ""
+    for field, stem in MP_AREA_METRICS.items():
+        inches, cm = _mp_num(area, field, "In"), _mp_num(area, field, "Cm")
+        row[f"{stem}_in"] = "" if inches is None else inches
+        row[f"{stem}_cm"] = "" if cm is None else cm
+        if inches is not None or cm is not None:
+            published += 1
+    # Season total sits on the report itself, not on an elevation block.
+    season_in, season_cm = _num(report.get("SeasonTotalIn")), _num(report.get("SeasonTotalCm"))
+    row["season_total_in"] = "" if season_in is None else season_in
+    row["season_total_cm"] = "" if season_cm is None else season_cm
+    if season_in is not None or season_cm is not None:
+        published += 1
+
+    for src, col in (("TotalOpenLifts", "lifts_open"), ("TotalLifts", "lifts_total"),
+                     ("TotalOpenTrails", "runs_open"), ("TotalTrails", "runs_total"),
+                     ("GroomedTrails", "runs_groomed")):
+        row[col] = _int(report.get(src))
+
+    if published == 0:
+        return FetchResult(resort.resort_id, "no_report",
+                           "snow report present but every figure is '--'")
+    # Recorded as a dual-unit source, which it is: both units are published for
+    # every metric. Individual fields do sometimes carry '--' on one side, and
+    # fill_units computes that one from the other — a gap in the source, not a
+    # single-unit source being converted wholesale.
+    return FetchResult(resort.resort_id, "ok", snow=fill_units(row, "in,cm"))
+
+
 # ---------------------------------------------------------------- dispatch
 
 
@@ -920,6 +1056,9 @@ ADAPTERS: dict[str, Adapter] = {
     "arlberg": Adapter(
         arlberg_url, parse_arlberg,
         ("snow-report-box__item", "Mountain", "Valley")),
+    "mtn_powder": Adapter(
+        mtn_powder_url, parse_mtn_powder,
+        ("SnowReport", "SeasonTotalIn", "SummitArea")),
     "soelden": Adapter(
         # English labels, because that is what the site actually serves us
         # once Accept-Language has had its say.

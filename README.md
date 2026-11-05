@@ -1,11 +1,11 @@
-# snowd — an Epic Pass snow tracker
+# snowd — an Epic + Ikon snow tracker
 
-Checks the Epic Pass resorts' snow reports a few times a day, keeps the numbers
-in a CSV, and draws them on a map.
+Checks the Epic Pass and Ikon Pass resorts' snow reports a few times a day,
+keeps the numbers in a CSV, and draws them on a map.
 
 **Live site: <https://planspace.org/snowd/>**
 
-![resorts](https://img.shields.io/badge/resorts-59-blue) ![reporting](https://img.shields.io/badge/with%20snow%20data-44-blue) ![source](https://img.shields.io/badge/source-resort%20snow%20reports-blue)
+![resorts](https://img.shields.io/badge/resorts-77-blue) ![reporting](https://img.shields.io/badge/with%20snow%20data-62-blue) ![source](https://img.shields.io/badge/source-resort%20snow%20reports-blue)
 
 ## Why
 
@@ -86,6 +86,25 @@ it means the last 24 hours or the total from that storm. Rather than guess and
 file it as 24-hour snowfall, it's left out. If you know how Arlberg means it,
 that'd be a welcome correction. Centimetres.
 
+**`mtn_powder`** (18 resorts) — every Alterra resort is served by one public
+JSON feed:
+
+```
+https://mtnpowder.com/feed?resortId=60
+```
+
+No token, and `mtnpowder.com/robots.txt` allows it. (There is a `v3.json`
+endpoint that wants a bearer token lifted from the page config — we don't need
+it and don't use it.) Like Vail it gives **both units for every figure**, so
+nothing is converted, and it adds its own publish time, lift and trail counts,
+and base depth at three elevations — Summit, Mid Mountain and Base. We take the
+highest block that actually carries numbers and say so with `summit_readings`.
+
+This also sidesteps a problem rather than solving it: five of those resorts'
+own websites (Steamboat, Snowshoe, Stratton, Crystal, Tremblant) sit behind an
+Incapsula WAF that refuses us even `robots.txt`. Reading the feed means never
+knocking on those doors.
+
 **`soelden`** (1 resort) — read off the **home page**, because their own
 Schneebericht page builds itself in the browser and the home-page tiles don't.
 Depth arrives as a valley-to-mountain range (`0-48 cm`) and we take the upper
@@ -114,17 +133,18 @@ operations putting data out for free.
 
 ## Coverage
 
-| | Count | Snow data | Adapter |
-|---|---|---|---|
-| Vail-operated, North America | 35 | full | `vail_cms` |
-| RCR, western Canada | 4 | full | `rcr_refresh` |
-| Telluride | 1 | full | `telluride` |
-| Rusutsu | 1 | season total | `rusutsu` |
-| Kitzsteinhorn | 1 | base depth | `kitzsteinhorn` |
-| Ski Arlberg | 1 | base depth | `arlberg` |
-| Sölden | 1 | base depth, lifts | `soelden` |
-| Vail-operated, Australia | 3 | location only | — |
-| Partner / international | 12 | location only | — |
+| | Pass | Count | Snow data | Adapter |
+|---|---|---|---|---|
+| Alterra-operated | Ikon | 18 | full | `mtn_powder` |
+| Vail-operated, North America | Epic | 35 | full | `vail_cms` |
+| RCR, western Canada | Epic | 4 | full | `rcr_refresh` |
+| Telluride | Epic | 1 | full | `telluride` |
+| Rusutsu | Epic | 1 | season total | `rusutsu` |
+| Kitzsteinhorn | Epic | 1 | base depth | `kitzsteinhorn` |
+| Ski Arlberg | Epic | 1 | base depth | `arlberg` |
+| Sölden | Epic | 1 | base depth, lifts | `soelden` |
+| Vail-operated, Australia | Epic | 3 | location only | — |
+| Partner / international | Epic | 12 | location only | — |
 
 Plenty of sources publish only part of a report, and the schema just leaves the
 rest blank rather than filling in a zero nobody measured. Kitzsteinhorn gives a
@@ -133,7 +153,30 @@ least until it opens in late November. A resort that's reporting but doesn't
 publish whatever the map is coloured by shows as a filled grey marker saying
 "not reported", which is different from the hollow "no report yet".
 
-The 15 resorts with no snow data are still on the map and in the table with
+### The rest of Ikon
+
+The 18 above are Alterra's own. The same feed also lists roughly 46 more Ikon
+destinations — Aspen's four mountains, Alta, Snowbird, Jackson Hole, Big Sky,
+Killington, Revelstoke, Taos, Niseko's four, SkiBig3, the Dolomites, the New
+Zealand and Australian hills — but with a forecast and **no snow report**. Each
+of those would need its own adapter against its own site, which is the same
+grind as the Epic partners and runs into the same client-rendering wall. They
+aren't in the registry yet.
+
+### Telling the two passes apart
+
+Colour on the map already carries snow depth, so the pass is carried by shape:
+a circle for Epic, a square for Ikon, a diamond for a resort on both. The
+squares are drawn slightly smaller than the circles they sit beside, because a
+square of equal width covers about 4/π as much ink and would otherwise read as
+more snow. There's a pass filter above the table, and each row says which pass
+it's on.
+
+Nothing is on both passes today, so the diamond is unused — but `passes` is a
+list precisely because that can change, and a resort like Telluride turns up on
+some Ikon products while being an Epic partner.
+
+The 15 Epic resorts with no snow data are still on the map and in the table with
 their coordinates — just marked "no report yet". Adding one means writing an
 adapter and filling in `data_source` in `data/resorts.csv`; nothing else has to
 change.
@@ -231,9 +274,15 @@ cron will keep better time than GitHub's.
 
 ### `data/resorts.csv` — the registry
 
-One row per resort: `resort_id`, `name`, `operator`, `epic_tier`, `country`,
-`region`, `state`, `domain`, `snow_report_url`, `latitude`, `longitude`,
-`timezone`, `data_source`.
+One row per resort: `resort_id`, `name`, `operator`, `passes`, `pass_tier`, `country`, `region`,
+`state`, `domain`, `snow_report_url`, `latitude`, `longitude`, `timezone`,
+`data_source`, `source_id`.
+
+`passes` is a comma-separated list, because a resort can be on more than one.
+`pass_tier` is `owned` or `partner` relative to whoever operates it. (These
+replace `epic_tier`, which had the single-pass assumption baked into its
+name.) `source_id` is for adapters whose endpoint can't be derived from the
+domain — currently just the Mtn Powder `resortId`.
 
 `data_source` names the adapter that reads the resort, and is empty for the
 ones nothing reads yet — it's the switch that brings a resort into the fetch.
@@ -339,8 +388,11 @@ tests/     fixtures/ — a saved response per adapter, so the parsers can be
   and little else. Those resorts sort and map on base depth and read "not
   reported" for the rest.
 - **Lower-elevation readings are thrown away.** Ski Arlberg gives valley and
-  mountain, Sölden a range, Kitzsteinhorn three stations — and only the highest
-  is kept. There's no column for the others yet.
+  mountain, Sölden a range, Kitzsteinhorn three stations, and the Alterra feed
+  gives Summit / Mid Mountain / Base — and only the highest is kept. There's no
+  column for the others yet, which is a bigger waste now than it was.
+- **Most of Ikon isn't here.** Only Alterra's own 18 report; the other ~46 Ikon
+  destinations need per-site adapters (see Coverage).
 - **No backfill.** The history starts the day the first fetch ran, and fills in
   from there.
 - **These are web pages, not APIs.** When a site gets redesigned its parser

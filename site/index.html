@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Epic Snow Tracker</title>
+<title>Epic + Ikon Snow Tracker</title>
 <!-- Leaflet 1.9.4 stylesheet, inlined: the artifact viewer's CSP allows no
      external stylesheets, and the map renders unstyled without it. Its only
      url() refs are the layer-control and default-marker sprites, neither of
@@ -106,6 +106,12 @@ button:hover,select:hover{border-color:var(--border-strong)}
 .legend .nd i{width:11px;height:11px;border-radius:50%;border:2px solid var(--m-nodata);background:transparent;display:block}
 .leaflet-container{font:inherit;background:var(--surface-2)}
 .leaflet-popup-content-wrapper{border-radius:9px}
+.mk{background:none;border:0}
+.mk svg{display:block;overflow:visible}
+.mk.sel .shape{stroke:var(--m-selected);stroke-width:4}
+.legend .shapes{display:flex;gap:12px;align-items:center;margin-left:14px}
+.legend .shapes span{display:inline-flex;align-items:center;gap:4px}
+.legend .shapes svg{display:block}
 .mk-tip{font:600 12px/1.35 ui-sans-serif,system-ui,sans-serif}
 .mk-tip small{display:block;font-weight:400;color:#555;font-size:11px}
 
@@ -198,7 +204,7 @@ footer a{color:var(--accent)}
 
 <header class="top">
   <div>
-    <h1><span class="flake">❄</span> Epic Snow Tracker</h1>
+    <h1><span class="flake">❄</span> Epic + Ikon Snow Tracker</h1>
     <div class="sub" id="sub">Loading…</div>
   </div>
   <div class="hdr-ctl">
@@ -233,9 +239,14 @@ footer a{color:var(--accent)}
 <div class="controls">
   <input type="search" id="q" placeholder="Search resort, state, region…" aria-label="Search resorts">
   <select id="region"><option value="">All regions</option></select>
+  <select id="pass">
+    <option value="">Epic + Ikon</option>
+    <option value="epic">Epic only</option>
+    <option value="ikon">Ikon only</option>
+  </select>
   <select id="tier">
-    <option value="">All resorts</option>
-    <option value="owned">Vail-operated</option>
+    <option value="">Owned + partner</option>
+    <option value="owned">Operator-owned</option>
     <option value="partner">Partner</option>
   </select>
   <select id="reporting">
@@ -267,9 +278,10 @@ footer a{color:var(--accent)}
   <div id="foot"></div>
   <div style="margin-top:6px">
     Every number here comes from the resort's own snow report — they measure it and publish it
-    for free, and this just writes it down. Vail-operated resorts give inches <em>and</em>
-    centimetres, so both are kept as published. Everywhere else we get one unit and work out
-    the other, marked &ldquo;&asymp;&rdquo;.
+    for free, and this just writes it down. Vail and Alterra resorts give inches <em>and</em>
+    centimetres, so both are kept as published. The partner resorts give one unit and we work
+    out the other, marked &ldquo;&asymp;&rdquo;. On the map, circles are Epic and squares are
+    Ikon; colour is snow depth.
   </div>
   <div style="margin-top:6px">
     Code and the full season history, as CSV, are on
@@ -301,7 +313,7 @@ var S = {
   season:  LS.get("season", null) || (D.seasons[0] || ""),
   unit:    LS.get("unit", "in"),
   metric:  "base",
-  q: "", region: "", tier: "", reporting: "",
+  q: "", region: "", tier: "", pass: "", reporting: "",
   sortK:   LS.get("sortK", "base"),
   sortDir: LS.get("sortDir", -1),
   favs:    LS.get("favs", []),
@@ -463,6 +475,36 @@ function radius(inchVal){
   return 5 + Math.sqrt(Math.max(0, inchVal)) * 1.45;
 }
 
+/* Colour already carries depth, so the pass has to be carried by something
+   else or the two encodings fight over one channel. Shape is the usual answer:
+   circle for Epic, square for Ikon, diamond for a resort on both. */
+function passKind(r){
+  var p = (r.passes && r.passes.length) ? r.passes : ["epic"];
+  var e = p.indexOf("epic") !== -1, i = p.indexOf("ikon") !== -1;
+  return (e && i) ? "both" : (i ? "ikon" : "epic");
+}
+function passLabel(r){
+  var k = passKind(r);
+  return k === "both" ? "Epic + Ikon" : (k === "ikon" ? "Ikon" : "Epic");
+}
+/** An SVG marker. A square of the same width reads heavier than a circle —
+ *  it covers 4/π as much ink — so the cornered shapes are scaled down to
+ *  match, otherwise every Ikon resort would look like it had more snow. */
+function markerSVG(kind, px, fill, ring, hollow){
+  var w = 2, box = px + w * 2, c = box / 2;
+  var r = px / 2, k = r * 0.886, shape;
+  if(kind === "ikon"){
+    shape = '<rect x="'+(c-k)+'" y="'+(c-k)+'" width="'+(k*2)+'" height="'+(k*2)+'" rx="1.5"/>';
+  } else if(kind === "both"){
+    shape = '<polygon points="'+c+','+(c-k*1.25)+' '+(c+k*1.25)+','+c+' '+c+','+(c+k*1.25)+' '+(c-k*1.25)+','+c+'"/>';
+  } else {
+    shape = '<circle cx="'+c+'" cy="'+c+'" r="'+r+'"/>';
+  }
+  return '<svg width="'+box+'" height="'+box+'" viewBox="0 0 '+box+' '+box+'" aria-hidden="true">'+
+    '<g class="shape" fill="'+fill+'" fill-opacity="'+(hollow?0:0.92)+'" stroke="'+ring+'" stroke-width="'+w+'">'+
+    shape+'</g></svg>';
+}
+
 function drawLegend(){
   var el = document.getElementById("legend");
   var mName = document.getElementById("metric").selectedOptions[0].textContent;
@@ -473,10 +515,21 @@ function drawLegend(){
     else if(S.unit === "cm" && b.lab === "72+") n = "183+";
     return "<span>"+n+"</span>";
   }).join("");
+  // Shape key, shown only when the map actually holds more than one pass.
+  var kinds = {};
+  D.resorts.forEach(function(r){ kinds[passKind(r)] = true; });
+  var names = {epic:"Epic", ikon:"Ikon", both:"Both"};
+  var shapes = "";
+  if(Object.keys(kinds).length > 1){
+    shapes = '<span class="shapes">' + ["epic","ikon","both"].filter(function(k){ return kinds[k]; })
+      .map(function(k){
+        return '<span>'+markerSVG(k, 11, cssv("--m2"), cssv("--m-ring"), false)+names[k]+'</span>';
+      }).join("") + '</span>';
+  }
   el.innerHTML =
     '<strong style="font-weight:650;color:var(--text-secondary)">'+esc(mName)+' ('+U[S.unit].suf+')</strong>'+
     '<span class="rampwrap"><span class="ramp">'+ramp+'</span><span class="lab">'+labs+'</span></span>'+
-    '<span class="nd"><i></i> no report yet</span>';
+    '<span class="nd"><i></i> no report yet</span>'+ shapes;
 }
 
 /* ------------------------------------------------ map */
@@ -537,12 +590,9 @@ function highlightMarker(id){
   Object.keys(markers).forEach(function(k){
     var m = markers[k];
     if(!m) return;
-    if(k === id){
-      m.setStyle({color: cssv("--m-selected"), weight: 4});
-      m.bringToFront();
-    } else {
-      m.setStyle({color: m._ring, weight: 2});
-    }
+    var el = m.getElement();
+    if(el) el.classList.toggle("sel", k === id);
+    m.setZIndexOffset(k === id ? 1000 : 0);
   });
 }
 
@@ -553,15 +603,17 @@ function drawMarkers(fit){
     var obs = latest(r.id);
     var iv  = inches(obs, S.metric);
     var has = reporting(r.id);
-    var m = L.circleMarker([r.lat, r.lon], {
-      radius: radius(has ? iv : null),
-      fillColor: binColor(has ? iv : null),
-      fillOpacity: has ? 0.92 : 0,
-      color: has ? cssv("--m-ring") : cssv("--m-nodata"),
-      weight: 2,
-      className: "mk"
+    var px   = Math.round(radius(has ? iv : null) * 2);
+    var ring = has ? cssv("--m-ring") : cssv("--m-nodata");
+    var box  = px + 4;
+    var m = L.marker([r.lat, r.lon], {
+      icon: L.divIcon({
+        className: "mk",
+        html: markerSVG(passKind(r), px, binColor(has ? iv : null), ring, !has),
+        iconSize: [box, box], iconAnchor: [box/2, box/2]
+      }),
+      keyboard: false
     });
-    m._ring = has ? cssv("--m-ring") : cssv("--m-nodata");
     // A resort can be reporting and still not publish *this* metric —
     // Kitzsteinhorn gives a base depth and nothing else, Rusutsu a season
     // total and nothing else. Saying "– cm" would read as a measured nothing.
@@ -570,7 +622,7 @@ function drawMarkers(fit){
       '<span class="mk-tip">'+esc(r.name)+
       (shown === null || shown === undefined
         ? '' : ' — '+(isConverted(obs, shown)?"≈":"")+fmt(shown)+U[S.unit].suf)+
-      '<small>'+esc(place(r))+
+      '<small>'+esc(place(r))+' · '+esc(passLabel(r))+
         (!has ? ' · no report yet'
               : (shown === null || shown === undefined ? ' · not reported' : ''))+
       '</small></span>',
@@ -598,9 +650,11 @@ function filtered(){
   return D.resorts.filter(function(r){
     if(S.region && r.region !== S.region) return false;
     if(S.tier && r.tier !== S.tier) return false;
+    if(S.pass && (r.passes || ["epic"]).indexOf(S.pass) === -1) return false;
     if(S.reporting === "yes" && !reporting(r.id)) return false;
     if(q){
-      var hay = (r.name+" "+r.state+" "+r.region+" "+r.country+" "+r.operator).toLowerCase();
+      var hay = (r.name+" "+r.state+" "+r.region+" "+r.country+" "+r.operator+" "+
+                 passLabel(r)).toLowerCase();
       if(hay.indexOf(q) === -1) return false;
     }
     return true;
@@ -654,7 +708,7 @@ function render(){
           'title="'+(isFav?"Remove from favourites":"Add to favourites")+'" '+
           'aria-label="'+(isFav?"Remove ":"Add ")+esc(r.name)+(isFav?" from":" to")+' favourites">'+(isFav?"★":"☆")+'</button></td>'+
         '<td class="l"><div class="rname">'+esc(r.name)+'</div><div class="rmeta">'+esc(place(r))+
-          (r.tier==="partner"?' · partner':'')+'</div></td>'+
+          ' · '+esc(passLabel(r))+(r.tier==="partner"?' · partner':'')+'</div></td>'+
         '<td>'+(has?num(val(obs,"base"), obs):'<span class="dim">–</span>')+'</td>'+
         '<td>'+(has?num(val(obs,"tot"), obs):'<span class="dim">–</span>')+'</td>'+
         '<td>'+(has?num(val(obs,"h24"), obs):'<span class="dim">–</span>')+'</td>'+
@@ -940,6 +994,7 @@ function bind(id, ev, fn){ var el = document.getElementById(id); if(el) el.addEv
 bind("q", "input", function(e){ S.q = e.target.value; render(); });
 bind("region", "change", function(e){ S.region = e.target.value; render(); });
 bind("tier", "change", function(e){ S.tier = e.target.value; render(); });
+bind("pass", "change", function(e){ S.pass = e.target.value; render(); });
 bind("reporting", "change", function(e){ S.reporting = e.target.value; render(); });
 bind("metric", "change", function(e){ S.metric = e.target.value; drawMarkers(false); });
 bind("season", "change", function(e){
@@ -992,7 +1047,7 @@ function setSub(){
   var rep = D.resorts.filter(function(r){ return reporting(r.id); }).length;
   var el = document.getElementById("sub");
   var asOf = freshest();
-  el.textContent = D.resorts.length + " Epic Pass resorts · " + rep + " reporting snow for " +
+  el.textContent = D.resorts.length + " Epic & Ikon resorts · " + rep + " reporting snow for " +
     S.season + " · newest report " + (asOf ? ago(asOf) : "none yet");
   // "has no adapter", not "is not Vail" — several partner resorts are read now.
   var noSrc = D.resorts.filter(function(r){ return !r.src; }).length;

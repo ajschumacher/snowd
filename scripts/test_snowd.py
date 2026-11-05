@@ -62,6 +62,18 @@ def t_timestamps():
     check("Telluride 'Last Updated:' prefix",
           snowd.parse_report_timestamp("Last Updated: November 5, 2026 at 7:52am", mt),
           "2026-11-05T14:52:00Z")
+    # The Alterra feed stamps its reports in ISO 8601 with an offset. Left
+    # unparsed these fall back to the fetch time, throwing away the one thing
+    # this project is built on.
+    check("ISO 8601 with a -0700 offset",
+          snowd.parse_report_timestamp("2026-11-05T10:18:17-0700", mt),
+          "2026-11-05T17:18:17Z")
+    check("ISO 8601 with a colon in the offset",
+          snowd.parse_report_timestamp("2026-11-05T10:01:12-08:00", mt),
+          "2026-11-05T18:01:12Z")
+    check("offset wins over the resort's timezone",
+          snowd.parse_report_timestamp("2026-11-05T10:00:00+0900", mt),
+          "2026-11-05T01:00:00Z")
     check("unparseable -> None",
           snowd.parse_report_timestamp("Updated recently", mt), None)
     check("empty -> None", snowd.parse_report_timestamp("", mt), None)
@@ -105,8 +117,12 @@ def t_extraction():
 
 # ---------------------------------------------------------------- parse_page
 def t_parse_page():
-    r = snowd.Resort("x", "X", "op", "owned", "US", "Rockies", "CO", "x.com",
-                     "https://x", 39.0, -106.0, "America/Denver", "vail_cms")
+    # Keyword-built on purpose: positional args silently shift whenever a
+    # field is added to the registry.
+    r = snowd.Resort(resort_id="x", name="X", operator="op", passes="epic",
+                     pass_tier="owned", country="US", region="Rockies", state="CO",
+                     domain="x.com", snow_report_url="https://x", latitude=39.0,
+                     longitude=-106.0, timezone="America/Denver", data_source="vail_cms")
     ok = snowd.parse_page(r, """
         FR.snowReportData = {"BaseDepth":{"Inches":"18","Centimeters":"45"},
           "CurrentSeason":{"Inches":"6","Centimeters":"15"},
@@ -389,6 +405,50 @@ def t_soelden():
           "no_report")
 
 
+def t_mtn_powder():
+    body = (FIXTURES / "mtn_powder_mammoth.json").read_text(encoding="utf-8")
+    r = _resort("mammoth")
+    check("mammoth is on the mtn_powder adapter", r.data_source, "mtn_powder")
+    check("feed url is built from source_id",
+          snowd.mtn_powder_url(r), "https://mtnpowder.com/feed?resortId=60")
+    out = snowd.ADAPTERS["mtn_powder"].parse(r, body, "2026-11-05T18:30:00Z")
+    check("mtn_powder status", out.status, "ok")
+    # Dual-unit at source, so neither side is computed.
+    check("base inches verbatim", out.snow["base_depth_in"], 20.0)
+    check("base cm verbatim (51, not 50.8)", out.snow["base_depth_cm"], 51.0)
+    check("season total", (out.snow["season_total_in"], out.snow["season_total_cm"]), (12.0, 30.0))
+    check("recorded as dual-unit", out.snow["units_native"], "in,cm")
+    check("summit block used", out.snow["summit_readings"], "true")
+    check("lifts", (out.snow["lifts_open"], out.snow["lifts_total"]), (2, 25))
+    check("trails", (out.snow["runs_open"], out.snow["runs_total"]), (3, 181))
+    # ISO 8601 with an offset; left unparsed this silently became the fetch time.
+    check("publish time parsed", out.snow["report_updated_utc"], "2026-11-05T18:01:12Z")
+
+    # One side of a metric can be "--" while the other has a number. That is a
+    # gap in the feed, and the missing side gets computed from the one given.
+    check("'--' inches filled from the cm that was given",
+          out.snow["snow_7d_in"], 0.0)
+
+    base_only = """{"SnowReport": {"LastUpdate": "2026-11-05T10:00:00-0700",
+      "SummitArea": {"BaseIn": "--", "BaseCm": "--"},
+      "MidMountainArea": {"BaseIn": "--", "BaseCm": "--"},
+      "BaseArea": {"BaseIn": "30", "BaseCm": "76"}}}"""
+    out = snowd.ADAPTERS["mtn_powder"].parse(r, base_only, "t")
+    check("falls down the elevations when the summit is empty",
+          out.snow["base_depth_in"], 30.0)
+    check("...and stops claiming a summit reading", out.snow["summit_readings"], "false")
+
+    # Lots of resorts sit in this feed with a forecast and no snow report.
+    check("forecast-only entry -> no_report",
+          snowd.ADAPTERS["mtn_powder"].parse(
+              r, '{"Name":"Alta","Forecast":{}}', "t").status, "no_report")
+    check("every figure '--' -> no_report",
+          snowd.ADAPTERS["mtn_powder"].parse(
+              r, '{"SnowReport":{"SummitArea":{"BaseIn":"--"}}}', "t").status, "no_report")
+    check("not JSON -> error",
+          snowd.ADAPTERS["mtn_powder"].parse(r, "<html>nope</html>", "t").status, "error")
+
+
 # ---------------------------------------------------------------- dedup
 def t_dedup():
     a = {"resort_id": "vail", "report_updated_utc": "2026-11-04T12:34:00Z",
@@ -469,6 +529,14 @@ def t_registry():
         except Exception:
             bad_tz.append(r.resort_id)
     check("timezones all valid", bad_tz, [])
+    bad_pass = [r.resort_id for r in rs if not r.pass_list]
+    check("every resort names at least one pass", bad_pass, [])
+    unknown_pass = sorted({p for r in rs for p in r.pass_list} - {"epic", "ikon"})
+    check("no unexpected pass names", unknown_pass, [])
+    no_sid = [r.resort_id for r in rs if r.data_source == "mtn_powder" and not r.source_id]
+    check("every mtn_powder resort has a source_id", no_sid, [])
+    sids = [r.source_id for r in rs if r.data_source == "mtn_powder"]
+    check("mtn_powder source_ids are unique", len(sids), len(set(sids)))
     check("southern resorts detected",
           sorted(r.resort_id for r in rs if r.hemisphere == "S"),
           ["falls-creek", "mount-hotham", "perisher"])
@@ -477,7 +545,7 @@ def t_registry():
 def main() -> int:
     for fn in (t_seasons, t_timestamps, t_numbers, t_extraction,
                t_parse_page, t_units, t_text, t_rcr, t_telluride,
-               t_rusutsu, t_kitzsteinhorn, t_arlberg, t_soelden,
+               t_rusutsu, t_kitzsteinhorn, t_arlberg, t_soelden, t_mtn_powder,
                t_dedup, t_forecast_payload, t_registry):
         fn()
     if FAILED:

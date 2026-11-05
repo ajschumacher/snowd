@@ -1,60 +1,78 @@
-resort_id,name,operator,epic_tier,country,region,state,domain,snow_report_url,latitude,longitude,timezone,data_source
-vail,Vail Mountain,Vail Resorts,owned,US,Rockies,CO,vail.com,https://www.vail.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,39.639209,-106.373484,America/Denver,vail_cms
-beaver-creek,Beaver Creek,Vail Resorts,owned,US,Rockies,CO,beavercreek.com,https://www.beavercreek.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,39.604225,-106.516515,America/Denver,vail_cms
-breckenridge,Breckenridge,Vail Resorts,owned,US,Rockies,CO,breckenridge.com,https://www.breckenridge.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,39.480227,-106.066698,America/Denver,vail_cms
-keystone,Keystone,Vail Resorts,owned,US,Rockies,CO,keystoneresort.com,https://www.keystoneresort.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,39.604538,-105.954529,America/Denver,vail_cms
-crested-butte,Crested Butte,Vail Resorts,owned,US,Rockies,CO,skicb.com,https://www.skicb.com/the-mountain/mountain-conditions/weather-report.aspx,38.899351,-106.965618,America/Denver,vail_cms
-park-city,Park City Mountain,Vail Resorts,owned,US,Rockies,UT,parkcitymountain.com,https://www.parkcitymountain.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,40.65108,-111.50829,America/Denver,vail_cms
-heavenly,Heavenly,Vail Resorts,owned,US,Tahoe,CA,skiheavenly.com,https://www.skiheavenly.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,38.92431,-119.91641,America/Los_Angeles,vail_cms
-northstar,Northstar California,Vail Resorts,owned,US,Tahoe,CA,northstarcalifornia.com,https://www.northstarcalifornia.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,39.27505,-120.120671,America/Los_Angeles,vail_cms
-kirkwood,Kirkwood,Vail Resorts,owned,US,Tahoe,CA,kirkwood.com,https://www.kirkwood.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,38.684722,-120.065556,America/Los_Angeles,vail_cms
-stevens-pass,Stevens Pass,Vail Resorts,owned,US,West,WA,stevenspass.com,https://www.stevenspass.com/the-mountain/mountain-conditions/weather-report.aspx,47.744167,-121.089167,America/Los_Angeles,vail_cms
-whistler-blackcomb,Whistler Blackcomb,Vail Resorts,owned,CA,West,BC,whistlerblackcomb.com,https://www.whistlerblackcomb.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,50.115278,-122.948056,America/Vancouver,vail_cms
-stowe,Stowe,Vail Resorts,owned,US,Northeast,VT,stowe.com,https://www.stowe.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,44.537732,-72.814006,America/New_York,vail_cms
-okemo,Okemo,Vail Resorts,owned,US,Northeast,VT,okemo.com,https://www.okemo.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,43.40525,-72.750361,America/New_York,vail_cms
-mount-snow,Mount Snow,Vail Resorts,owned,US,Northeast,VT,mountsnow.com,https://www.mountsnow.com/the-mountain/mountain-conditions/weather-report.aspx,42.959835,-72.922161,America/New_York,vail_cms
-mount-sunapee,Mount Sunapee,Vail Resorts,owned,US,Northeast,NH,mountsunapee.com,https://www.mountsunapee.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,43.327778,-72.081111,America/New_York,vail_cms
-attitash,Attitash,Vail Resorts,owned,US,Northeast,NH,attitash.com,https://www.attitash.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,44.082222,-71.229167,America/New_York,vail_cms
-wildcat,Wildcat Mountain,Vail Resorts,owned,US,Northeast,NH,skiwildcat.com,https://www.skiwildcat.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,44.264722,-71.239167,America/New_York,vail_cms
-crotched,Crotched Mountain,Vail Resorts,owned,US,Northeast,NH,crotchedmtn.com,https://www.crotchedmtn.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,42.9975,-71.876389,America/New_York,vail_cms
-hunter,Hunter Mountain,Vail Resorts,owned,US,Northeast,NY,huntermtn.com,https://www.huntermtn.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,42.203889,-74.211111,America/New_York,vail_cms
-jack-frost-big-boulder,Jack Frost Big Boulder,Vail Resorts,owned,US,Mid-Atlantic,PA,jfbb.com,https://www.jfbb.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,41.095,-75.629167,America/New_York,vail_cms
-liberty,Liberty Mountain,Vail Resorts,owned,US,Mid-Atlantic,PA,libertymountainresort.com,https://www.libertymountainresort.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,39.766944,-77.3375,America/New_York,vail_cms
-roundtop,Roundtop Mountain,Vail Resorts,owned,US,Mid-Atlantic,PA,skiroundtop.com,https://www.skiroundtop.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,40.053600,-76.893600,America/New_York,vail_cms
-whitetail,Whitetail Resort,Vail Resorts,owned,US,Mid-Atlantic,PA,skiwhitetail.com,https://www.skiwhitetail.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,39.742,-77.932,America/New_York,vail_cms
-laurel-mountain,Laurel Mountain,Vail Resorts,owned,US,Mid-Atlantic,PA,laurelmountainski.com,https://www.laurelmountainski.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,40.173333,-79.172778,America/New_York,vail_cms
-seven-springs,Seven Springs,Vail Resorts,owned,US,Mid-Atlantic,PA,7springs.com,https://www.7springs.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,40.021667,-79.300556,America/New_York,vail_cms
-hidden-valley-pa,Hidden Valley (PA),Vail Resorts,owned,US,Mid-Atlantic,PA,hiddenvalleyresort.com,https://www.hiddenvalleyresort.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,40.058333,-79.251389,America/New_York,vail_cms
-mad-river,Mad River Mountain,Vail Resorts,owned,US,Midwest,OH,skimadriver.com,https://www.skimadriver.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,40.308333,-83.620833,America/New_York,vail_cms
-alpine-valley-oh,Alpine Valley (OH),Vail Resorts,owned,US,Midwest,OH,alpinevalleyohio.com,https://www.alpinevalleyohio.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,41.530300,-81.266200,America/New_York,vail_cms
-boston-mills-brandywine,Boston Mills Brandywine,Vail Resorts,owned,US,Midwest,OH,bmbw.com,https://www.bmbw.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,41.264444,-81.5675,America/New_York,vail_cms
-mt-brighton,Mt Brighton,Vail Resorts,owned,US,Midwest,MI,mtbrighton.com,https://www.mtbrighton.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,42.515278,-83.806944,America/Detroit,vail_cms
-afton-alps,Afton Alps,Vail Resorts,owned,US,Midwest,MN,aftonalps.com,https://www.aftonalps.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,44.858333,-92.790278,America/Chicago,vail_cms
-wilmot,Wilmot Mountain,Vail Resorts,owned,US,Midwest,WI,wilmotmountain.com,https://www.wilmotmountain.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,42.508889,-88.171389,America/Chicago,vail_cms
-hidden-valley-mo,Hidden Valley (MO),Vail Resorts,owned,US,Midwest,MO,hiddenvalleyski.com,https://www.hiddenvalleyski.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,38.508611,-90.595,America/Chicago,vail_cms
-snow-creek,Snow Creek,Vail Resorts,owned,US,Midwest,MO,skisnowcreek.com,https://www.skisnowcreek.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,39.468700,-94.972000,America/Chicago,vail_cms
-paoli-peaks,Paoli Peaks,Vail Resorts,owned,US,Midwest,IN,paolipeaks.com,https://www.paolipeaks.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,38.544444,-86.455,America/Indiana/Indianapolis,vail_cms
-perisher,Perisher,Vail Resorts,owned,AU,Australia,NSW,perisher.com.au,,-36.405556,148.413889,Australia/Sydney,
-falls-creek,Falls Creek,Vail Resorts,owned,AU,Australia,VIC,skifalls.com.au,,-36.865,147.275278,Australia/Melbourne,
-mount-hotham,Mount Hotham,Vail Resorts,owned,AU,Australia,VIC,mthotham.com.au,,-36.976111,147.136111,Australia/Melbourne,
-telluride,Telluride,Independent,partner,US,Rockies,CO,tellurideskiresort.com,https://tellurideskiresort.com/snow-report/,37.936389,-107.846944,America/Denver,telluride
-fernie,Fernie Alpine Resort,RCR,partner,CA,West,BC,skifernie.com,https://skifernie.com/conditions/snow-report/,49.4625,-115.086111,America/Edmonton,rcr_refresh
-kicking-horse,Kicking Horse,RCR,partner,CA,West,BC,kickinghorseresort.com,https://kickinghorseresort.com/conditions/snow-report/,51.297778,-117.047778,America/Edmonton,rcr_refresh
-kimberley,Kimberley Alpine Resort,RCR,partner,CA,West,BC,skikimberley.com,https://skikimberley.com/conditions/snow-report/,49.665,-116.011111,America/Edmonton,rcr_refresh
-nakiska,Nakiska,RCR,partner,CA,West,AB,skinakiska.com,https://skinakiska.com/conditions/snow-report/,50.942778,-115.158333,America/Edmonton,rcr_refresh
-mont-sainte-anne,Mont-Sainte-Anne,RCR,partner,CA,Northeast,QC,mont-sainte-anne.com,,47.075,-70.911111,America/Toronto,
-stoneham,Stoneham,RCR,partner,CA,Northeast,QC,ski-stoneham.com,,47.0,-71.375,America/Toronto,
-hakuba-valley,Hakuba Valley,Partner,partner,JP,Japan,Nagano,hakubavalley.com,,36.698611,137.831944,Asia/Tokyo,
-rusutsu,Rusutsu Resort,Partner,partner,JP,Japan,Hokkaido,rusutsu.com,https://rusutsu.com/en/snow-and-weather-report/,42.743611,140.901389,Asia/Tokyo,rusutsu
-verbier-4-vallees,Verbier 4 Vallees,Partner,partner,CH,Europe,Valais,verbier4vallees.ch,,46.096111,7.228611,Europe/Zurich,
-crans-montana,Crans-Montana,Partner,partner,CH,Europe,Valais,crans-montana.ch,,46.3125,7.479167,Europe/Zurich,
-andermatt-sedrun-disentis,Andermatt-Sedrun-Disentis,Partner,partner,CH,Europe,Uri,andermatt-sedrun-disentis.ch,,46.636944,8.593889,Europe/Zurich,
-ski-arlberg,Ski Arlberg,Partner,partner,AT,Europe,Tyrol,skiarlberg.at,https://www.skiarlberg.at/en/live-info/snow-avalanche-report,47.129167,10.213889,Europe/Vienna,arlberg
-soelden,Solden,Partner,partner,AT,Europe,Tyrol,soelden.com,https://www.soelden.com/de/live-infos/schneebericht,46.968056,11.0075,Europe/Vienna,soelden
-silvretta-montafon,Silvretta Montafon,Partner,partner,AT,Europe,Vorarlberg,silvretta-montafon.at,,47.078611,9.948611,Europe/Vienna,
-zillertal,Zillertal,Partner,partner,AT,Europe,Tyrol,zillertal.at,,47.228611,11.858333,Europe/Vienna,
-saalbach,Saalbach Hinterglemm Leogang Fieberbrunn,Partner,partner,AT,Europe,Salzburg,saalbach.com,,47.391667,12.636111,Europe/Vienna,
-zell-am-see-kaprun,Zell am See-Kaprun,Partner,partner,AT,Europe,Salzburg,schmitten.at,,47.308333,12.783333,Europe/Vienna,
-kitzsteinhorn,Kitzsteinhorn,Partner,partner,AT,Europe,Salzburg,kitzsteinhorn.at,https://www.kitzsteinhorn.at/en/service/information/weather-webcams,47.188889,12.688889,Europe/Vienna,kitzsteinhorn
-les-3-vallees,Les 3 Vallees,Partner,partner,FR,Europe,Savoie,les3vallees.com,,45.333333,6.566667,Europe/Paris,
-skirama-dolomiti,Skirama Dolomiti,Partner,partner,IT,Europe,Trentino,skirama.it,,46.229700,10.826200,Europe/Rome,
+resort_id,name,operator,passes,pass_tier,country,region,state,domain,snow_report_url,latitude,longitude,timezone,data_source,source_id
+vail,Vail Mountain,Vail Resorts,epic,owned,US,Rockies,CO,vail.com,https://www.vail.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,39.639209,-106.373484,America/Denver,vail_cms,
+beaver-creek,Beaver Creek,Vail Resorts,epic,owned,US,Rockies,CO,beavercreek.com,https://www.beavercreek.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,39.604225,-106.516515,America/Denver,vail_cms,
+breckenridge,Breckenridge,Vail Resorts,epic,owned,US,Rockies,CO,breckenridge.com,https://www.breckenridge.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,39.480227,-106.066698,America/Denver,vail_cms,
+keystone,Keystone,Vail Resorts,epic,owned,US,Rockies,CO,keystoneresort.com,https://www.keystoneresort.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,39.604538,-105.954529,America/Denver,vail_cms,
+crested-butte,Crested Butte,Vail Resorts,epic,owned,US,Rockies,CO,skicb.com,https://www.skicb.com/the-mountain/mountain-conditions/weather-report.aspx,38.899351,-106.965618,America/Denver,vail_cms,
+park-city,Park City Mountain,Vail Resorts,epic,owned,US,Rockies,UT,parkcitymountain.com,https://www.parkcitymountain.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,40.65108,-111.50829,America/Denver,vail_cms,
+heavenly,Heavenly,Vail Resorts,epic,owned,US,Tahoe,CA,skiheavenly.com,https://www.skiheavenly.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,38.92431,-119.91641,America/Los_Angeles,vail_cms,
+northstar,Northstar California,Vail Resorts,epic,owned,US,Tahoe,CA,northstarcalifornia.com,https://www.northstarcalifornia.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,39.27505,-120.120671,America/Los_Angeles,vail_cms,
+kirkwood,Kirkwood,Vail Resorts,epic,owned,US,Tahoe,CA,kirkwood.com,https://www.kirkwood.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,38.684722,-120.065556,America/Los_Angeles,vail_cms,
+stevens-pass,Stevens Pass,Vail Resorts,epic,owned,US,West,WA,stevenspass.com,https://www.stevenspass.com/the-mountain/mountain-conditions/weather-report.aspx,47.744167,-121.089167,America/Los_Angeles,vail_cms,
+whistler-blackcomb,Whistler Blackcomb,Vail Resorts,epic,owned,CA,West,BC,whistlerblackcomb.com,https://www.whistlerblackcomb.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,50.115278,-122.948056,America/Vancouver,vail_cms,
+stowe,Stowe,Vail Resorts,epic,owned,US,Northeast,VT,stowe.com,https://www.stowe.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,44.537732,-72.814006,America/New_York,vail_cms,
+okemo,Okemo,Vail Resorts,epic,owned,US,Northeast,VT,okemo.com,https://www.okemo.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,43.40525,-72.750361,America/New_York,vail_cms,
+mount-snow,Mount Snow,Vail Resorts,epic,owned,US,Northeast,VT,mountsnow.com,https://www.mountsnow.com/the-mountain/mountain-conditions/weather-report.aspx,42.959835,-72.922161,America/New_York,vail_cms,
+mount-sunapee,Mount Sunapee,Vail Resorts,epic,owned,US,Northeast,NH,mountsunapee.com,https://www.mountsunapee.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,43.327778,-72.081111,America/New_York,vail_cms,
+attitash,Attitash,Vail Resorts,epic,owned,US,Northeast,NH,attitash.com,https://www.attitash.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,44.082222,-71.229167,America/New_York,vail_cms,
+wildcat,Wildcat Mountain,Vail Resorts,epic,owned,US,Northeast,NH,skiwildcat.com,https://www.skiwildcat.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,44.264722,-71.239167,America/New_York,vail_cms,
+crotched,Crotched Mountain,Vail Resorts,epic,owned,US,Northeast,NH,crotchedmtn.com,https://www.crotchedmtn.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,42.9975,-71.876389,America/New_York,vail_cms,
+hunter,Hunter Mountain,Vail Resorts,epic,owned,US,Northeast,NY,huntermtn.com,https://www.huntermtn.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,42.203889,-74.211111,America/New_York,vail_cms,
+jack-frost-big-boulder,Jack Frost Big Boulder,Vail Resorts,epic,owned,US,Mid-Atlantic,PA,jfbb.com,https://www.jfbb.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,41.095,-75.629167,America/New_York,vail_cms,
+liberty,Liberty Mountain,Vail Resorts,epic,owned,US,Mid-Atlantic,PA,libertymountainresort.com,https://www.libertymountainresort.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,39.766944,-77.3375,America/New_York,vail_cms,
+roundtop,Roundtop Mountain,Vail Resorts,epic,owned,US,Mid-Atlantic,PA,skiroundtop.com,https://www.skiroundtop.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,40.053600,-76.893600,America/New_York,vail_cms,
+whitetail,Whitetail Resort,Vail Resorts,epic,owned,US,Mid-Atlantic,PA,skiwhitetail.com,https://www.skiwhitetail.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,39.742,-77.932,America/New_York,vail_cms,
+laurel-mountain,Laurel Mountain,Vail Resorts,epic,owned,US,Mid-Atlantic,PA,laurelmountainski.com,https://www.laurelmountainski.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,40.173333,-79.172778,America/New_York,vail_cms,
+seven-springs,Seven Springs,Vail Resorts,epic,owned,US,Mid-Atlantic,PA,7springs.com,https://www.7springs.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,40.021667,-79.300556,America/New_York,vail_cms,
+hidden-valley-pa,Hidden Valley (PA),Vail Resorts,epic,owned,US,Mid-Atlantic,PA,hiddenvalleyresort.com,https://www.hiddenvalleyresort.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,40.058333,-79.251389,America/New_York,vail_cms,
+mad-river,Mad River Mountain,Vail Resorts,epic,owned,US,Midwest,OH,skimadriver.com,https://www.skimadriver.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,40.308333,-83.620833,America/New_York,vail_cms,
+alpine-valley-oh,Alpine Valley (OH),Vail Resorts,epic,owned,US,Midwest,OH,alpinevalleyohio.com,https://www.alpinevalleyohio.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,41.530300,-81.266200,America/New_York,vail_cms,
+boston-mills-brandywine,Boston Mills Brandywine,Vail Resorts,epic,owned,US,Midwest,OH,bmbw.com,https://www.bmbw.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,41.264444,-81.5675,America/New_York,vail_cms,
+mt-brighton,Mt Brighton,Vail Resorts,epic,owned,US,Midwest,MI,mtbrighton.com,https://www.mtbrighton.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,42.515278,-83.806944,America/Detroit,vail_cms,
+afton-alps,Afton Alps,Vail Resorts,epic,owned,US,Midwest,MN,aftonalps.com,https://www.aftonalps.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,44.858333,-92.790278,America/Chicago,vail_cms,
+wilmot,Wilmot Mountain,Vail Resorts,epic,owned,US,Midwest,WI,wilmotmountain.com,https://www.wilmotmountain.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,42.508889,-88.171389,America/Chicago,vail_cms,
+hidden-valley-mo,Hidden Valley (MO),Vail Resorts,epic,owned,US,Midwest,MO,hiddenvalleyski.com,https://www.hiddenvalleyski.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,38.508611,-90.595,America/Chicago,vail_cms,
+snow-creek,Snow Creek,Vail Resorts,epic,owned,US,Midwest,MO,skisnowcreek.com,https://www.skisnowcreek.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,39.468700,-94.972000,America/Chicago,vail_cms,
+paoli-peaks,Paoli Peaks,Vail Resorts,epic,owned,US,Midwest,IN,paolipeaks.com,https://www.paolipeaks.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx,38.544444,-86.455,America/Indiana/Indianapolis,vail_cms,
+perisher,Perisher,Vail Resorts,epic,owned,AU,Australia,NSW,perisher.com.au,,-36.405556,148.413889,Australia/Sydney,,
+falls-creek,Falls Creek,Vail Resorts,epic,owned,AU,Australia,VIC,skifalls.com.au,,-36.865,147.275278,Australia/Melbourne,,
+mount-hotham,Mount Hotham,Vail Resorts,epic,owned,AU,Australia,VIC,mthotham.com.au,,-36.976111,147.136111,Australia/Melbourne,,
+telluride,Telluride,Independent,epic,partner,US,Rockies,CO,tellurideskiresort.com,https://tellurideskiresort.com/snow-report/,37.936389,-107.846944,America/Denver,telluride,
+fernie,Fernie Alpine Resort,RCR,epic,partner,CA,West,BC,skifernie.com,https://skifernie.com/conditions/snow-report/,49.4625,-115.086111,America/Edmonton,rcr_refresh,
+kicking-horse,Kicking Horse,RCR,epic,partner,CA,West,BC,kickinghorseresort.com,https://kickinghorseresort.com/conditions/snow-report/,51.297778,-117.047778,America/Edmonton,rcr_refresh,
+kimberley,Kimberley Alpine Resort,RCR,epic,partner,CA,West,BC,skikimberley.com,https://skikimberley.com/conditions/snow-report/,49.665,-116.011111,America/Edmonton,rcr_refresh,
+nakiska,Nakiska,RCR,epic,partner,CA,West,AB,skinakiska.com,https://skinakiska.com/conditions/snow-report/,50.942778,-115.158333,America/Edmonton,rcr_refresh,
+mont-sainte-anne,Mont-Sainte-Anne,RCR,epic,partner,CA,Northeast,QC,mont-sainte-anne.com,,47.075,-70.911111,America/Toronto,,
+stoneham,Stoneham,RCR,epic,partner,CA,Northeast,QC,ski-stoneham.com,,47.0,-71.375,America/Toronto,,
+hakuba-valley,Hakuba Valley,Partner,epic,partner,JP,Japan,Nagano,hakubavalley.com,,36.698611,137.831944,Asia/Tokyo,,
+rusutsu,Rusutsu Resort,Partner,epic,partner,JP,Japan,Hokkaido,rusutsu.com,https://rusutsu.com/en/snow-and-weather-report/,42.743611,140.901389,Asia/Tokyo,rusutsu,
+verbier-4-vallees,Verbier 4 Vallees,Partner,epic,partner,CH,Europe,Valais,verbier4vallees.ch,,46.096111,7.228611,Europe/Zurich,,
+crans-montana,Crans-Montana,Partner,epic,partner,CH,Europe,Valais,crans-montana.ch,,46.3125,7.479167,Europe/Zurich,,
+andermatt-sedrun-disentis,Andermatt-Sedrun-Disentis,Partner,epic,partner,CH,Europe,Uri,andermatt-sedrun-disentis.ch,,46.636944,8.593889,Europe/Zurich,,
+ski-arlberg,Ski Arlberg,Partner,epic,partner,AT,Europe,Tyrol,skiarlberg.at,https://www.skiarlberg.at/en/live-info/snow-avalanche-report,47.129167,10.213889,Europe/Vienna,arlberg,
+soelden,Solden,Partner,epic,partner,AT,Europe,Tyrol,soelden.com,https://www.soelden.com/de/live-infos/schneebericht,46.968056,11.0075,Europe/Vienna,soelden,
+silvretta-montafon,Silvretta Montafon,Partner,epic,partner,AT,Europe,Vorarlberg,silvretta-montafon.at,,47.078611,9.948611,Europe/Vienna,,
+zillertal,Zillertal,Partner,epic,partner,AT,Europe,Tyrol,zillertal.at,,47.228611,11.858333,Europe/Vienna,,
+saalbach,Saalbach Hinterglemm Leogang Fieberbrunn,Partner,epic,partner,AT,Europe,Salzburg,saalbach.com,,47.391667,12.636111,Europe/Vienna,,
+zell-am-see-kaprun,Zell am See-Kaprun,Partner,epic,partner,AT,Europe,Salzburg,schmitten.at,,47.308333,12.783333,Europe/Vienna,,
+kitzsteinhorn,Kitzsteinhorn,Partner,epic,partner,AT,Europe,Salzburg,kitzsteinhorn.at,https://www.kitzsteinhorn.at/en/service/information/weather-webcams,47.188889,12.688889,Europe/Vienna,kitzsteinhorn,
+les-3-vallees,Les 3 Vallees,Partner,epic,partner,FR,Europe,Savoie,les3vallees.com,,45.333333,6.566667,Europe/Paris,,
+skirama-dolomiti,Skirama Dolomiti,Partner,epic,partner,IT,Europe,Trentino,skirama.it,,46.229700,10.826200,Europe/Rome,,
+winter-park,Winter Park Resort,Alterra,ikon,owned,US,Rockies,CO,winterparkresort.com,https://www.winterparkresort.com/the-mountain/mountain-report,39.8869,-105.762,America/Denver,mtn_powder,5
+steamboat,Steamboat,Alterra,ikon,owned,US,Rockies,CO,steamboat.com,https://www.steamboat.com/the-mountain/mountain-report,40.4528,-106.773,America/Denver,mtn_powder,6
+arapahoe-basin,Arapahoe Basin,Alterra,ikon,owned,US,Rockies,CO,arapahoebasin.com,https://www.arapahoebasin.com/,39.62539,-105.86078,America/Denver,mtn_powder,93
+deer-valley,Deer Valley Resort,Alterra,ikon,owned,US,Rockies,UT,deervalley.com,https://www.deervalley.com/explore-the-mountain/mountain-report,40.62278,-111.48944,America/Denver,mtn_powder,49
+solitude,Solitude Mountain Resort,Alterra,ikon,owned,US,Rockies,UT,solitudemountain.com,https://www.solitudemountain.com/mountain-and-village/conditions-and-maps,40.6151,-111.589,America/Denver,mtn_powder,65
+palisades-tahoe,Palisades Tahoe,Alterra,ikon,owned,US,Tahoe,CA,palisadestahoe.com,https://www.palisadestahoe.com/mountain-information/mountain-report,39.1882,-120.2639,America/Los_Angeles,mtn_powder,61
+mammoth,Mammoth Mountain,Alterra,ikon,owned,US,West,CA,mammothmountain.com,https://www.mammothmountain.com/on-the-mountain/mountain-report,37.6507,-119.0374,America/Los_Angeles,mtn_powder,60
+june-mountain,June Mountain,Alterra,ikon,owned,US,West,CA,junemountain.com,https://www.junemountain.com/,37.7683,-119.0906,America/Los_Angeles,mtn_powder,59
+bear-mountain,Bear Mountain,Alterra,ikon,owned,US,West,CA,bigbearmountainresort.com,https://www.bigbearmountainresort.com/,34.2267,-116.86,America/Los_Angeles,mtn_powder,57
+snow-summit,Snow Summit,Alterra,ikon,owned,US,West,CA,bigbearmountainresort.com,https://www.bigbearmountainresort.com/,34.2286,-116.8911,America/Los_Angeles,mtn_powder,58
+snow-valley,Snow Valley,Alterra,ikon,owned,US,West,CA,bigbearmountainresort.com,https://www.bigbearmountainresort.com/,34.2234,-117.037,America/Los_Angeles,mtn_powder,173
+crystal-mountain-wa,Crystal Mountain,Alterra,ikon,owned,US,West,WA,crystalmountainresort.com,https://www.crystalmountainresort.com/the-mountain/mountain-report,46.9278,-121.482,America/Los_Angeles,mtn_powder,80
+schweitzer,Schweitzer,Alterra,ikon,owned,US,West,ID,schweitzer.com,https://www.schweitzer.com/mountain-info/mountain-report,48.367,-116.623,America/Los_Angeles,mtn_powder,168
+sugarbush,Sugarbush Resort,Alterra,ikon,owned,US,Northeast,VT,sugarbush.com,https://www.sugarbush.com/mountain/conditions,44.1372,-72.9067,America/New_York,mtn_powder,70
+stratton,Stratton Mountain,Alterra,ikon,owned,US,Northeast,VT,stratton.com,https://www.stratton.com/the-mountain/mountain-report,43.1142,-72.9067,America/New_York,mtn_powder,1
+snowshoe,Snowshoe Mountain,Alterra,ikon,owned,US,Mid-Atlantic,WV,snowshoemtn.com,https://www.snowshoemtn.com/the-mountain/mountain-report,38.4089,-79.9947,America/New_York,mtn_powder,2
+blue-mountain-on,Blue Mountain,Alterra,ikon,owned,CA,Northeast,ON,bluemountain.ca,https://www.bluemountain.ca/,44.5,-80.3167,America/Toronto,mtn_powder,3
+tremblant,Mont-Tremblant,Alterra,ikon,owned,CA,Northeast,QC,tremblant.ca,https://www.tremblant.ca/mountain-village/mountain-report,46.214,-74.585,America/Toronto,mtn_powder,4

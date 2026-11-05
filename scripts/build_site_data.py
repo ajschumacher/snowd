@@ -69,7 +69,8 @@ def main() -> int:
         "seasons": discover_seasons(),
         "resorts": [
             {
-                "id": r.resort_id, "name": r.name, "tier": r.epic_tier,
+                "id": r.resort_id, "name": r.name, "tier": r.pass_tier,
+                "passes": r.pass_list,
                 "operator": r.operator, "country": r.country, "region": r.region,
                 "state": r.state, "lat": r.latitude, "lon": r.longitude,
                 "url": f"https://www.{r.domain}", "report": r.snow_report_url,
