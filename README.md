@@ -64,6 +64,12 @@ nothing rather than the wrong number:
 
 Lifts and trails open as well. Inches.
 
+Its "Last Updated" line is **not** a publish time — it's when the page was
+rendered. Fetch it twice a minute apart and it follows the clock. Stored as a
+publish time it made every single fetch look like a fresh report, so it's kept
+as text and never as a timestamp, and Telluride de-duplicates on its values
+like the other sources that publish no update time.
+
 **`rusutsu`** (1 resort) — label/value pairs, published **per mountain**: West
 Mt., East Mt. and Mt. Isola each get their own reading and there's no single
 resort-wide figure, so we take the deepest. That's a judgement call, not
@@ -97,8 +103,14 @@ No token, and `mtnpowder.com/robots.txt` allows it. (There is a `v3.json`
 endpoint that wants a bearer token lifted from the page config — we don't need
 it and don't use it.) Like Vail it gives **both units for every figure**, so
 nothing is converted, and it adds its own publish time, lift and trail counts,
-and base depth at three elevations — Summit, Mid Mountain and Base. We take the
-highest block that actually carries numbers and say so with `summit_readings`.
+and base depth at three elevations — Summit, Mid Mountain and Base.
+
+**Mid-mountain is the one taken**, then the base area, and the summit only when
+it's all that's given. Reaching for the summit first gave outliers rather than
+useful numbers: Crystal Mountain publishes 0" at the base, 0" at mid-mountain
+and 70" at the summit, and Mammoth 12" / 15" / 20". Whichever was used is
+recorded in `reading_level`, since picking one of three numbers is a judgement
+call and shouldn't be invisible.
 
 This also sidesteps a problem rather than solving it: five of those resorts'
 own websites (Steamboat, Snowshoe, Stratton, Crystal, Tremblant) sit behind an
@@ -297,7 +309,7 @@ One row per resort per published report, both units for every metric:
 `observed_at`, `season`, `resort_id`, `report_updated_utc`,
 `report_updated_text`, `base_depth_{in,cm}`, `season_total_{in,cm}`,
 `snow_{12h,24h,48h,7d}_{in,cm}`, `overall_conditions`, `summit_readings`,
-`vail_resort_id`, `units_native`, `lifts_{open,total}`,
+`vail_resort_id`, `units_native`, `reading_level`, `lifts_{open,total}`,
 `runs_{open,total,groomed}`.
 
 `observed_at` is when we fetched it; `report_updated_utc` is when the resort
@@ -312,7 +324,9 @@ freshness the resort never actually said.
 
 `units_native` is `in,cm` where the source gave us both, or `in` / `cm` where
 it gave one, so a converted figure can always be told apart from a reported
-one. Lift and run counts are blank unless the source publishes them.
+one. `reading_level` is `mid`, `base` or `summit` for sources that measure at
+several elevations, and blank for the rest. Lift and run counts are blank
+unless the source publishes them.
 
 ### `data/forecast_<season>.csv` — the forecast
 
@@ -327,10 +341,18 @@ hover text. That's only for display; the CSV keeps both.
 
 ### Duplicate handling
 
-A snow row counts as "the same row" when it has the same resort and the same
-publish timestamp, so re-running the fetch won't append a second copy of a
-report that hasn't changed. Where there's no timestamp, the measured values
-plus the fetch date stand in.
+A row earns its place by carrying a different measurement, or by being on a
+different day: **same resort, same day, same numbers is the same row.**
+
+Keying on the publish timestamp alone wasn't enough. A resort that touches that
+stamp without changing any number — Telluride stamps its page with the render
+time — produced a fresh row on every fetch, twelve identical readings in one
+afternoon. Keying on the values alone is wrong too, because a resort sitting at
+the same depth for a week is genuinely a week of observations, not one.
+
+The day comes from the resort's own publish date where there is one, which is
+what keeps a report left up all summer to a single row rather than one per day
+of polling. Where there's no timestamp, the fetch date stands in.
 
 Forecast rows are keyed on resort + target date + fetch date. A re-fetch on the
 same day replaces that day's row only if the forecast actually moved, compared
@@ -387,10 +409,10 @@ tests/     fixtures/ — a saved response per adapter, so the parsers can be
 - **Partial reports are normal**, and four partner sources publish a base depth
   and little else. Those resorts sort and map on base depth and read "not
   reported" for the rest.
-- **Lower-elevation readings are thrown away.** Ski Arlberg gives valley and
+- **The other elevations are thrown away.** Ski Arlberg gives valley and
   mountain, Sölden a range, Kitzsteinhorn three stations, and the Alterra feed
-  gives Summit / Mid Mountain / Base — and only the highest is kept. There's no
-  column for the others yet, which is a bigger waste now than it was.
+  Summit / Mid Mountain / Base. Only one is kept — `reading_level` at least
+  records which — but there's still no column for the others.
 - **Most of Ikon isn't here.** Only Alterra's own 18 report; the other ~46 Ikon
   destinations need per-site adapters (see Coverage).
 - **No backfill.** The history starts the day the first fetch ran, and fills in

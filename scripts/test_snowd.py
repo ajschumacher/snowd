@@ -257,8 +257,13 @@ def t_telluride():
     check("inches converted to cm", out.snow["base_depth_cm"], 30.5)
     check("native unit is inches", out.snow["units_native"], "in")
     check("conditions", out.snow["overall_conditions"], "Variable")
-    check("stamp parsed (7:52am MST)",
-          out.snow["report_updated_utc"], "2026-11-05T14:52:00Z")
+    # "Last Updated" on this page is the render time, not a publish time —
+    # fetched twice a minute apart it follows the clock. Recorded as a publish
+    # time it made every fetch look like a fresh report.
+    check("render clock is not stored as a publish time",
+          out.snow["report_updated_utc"], "")
+    check("...but the text it showed is kept",
+          out.snow["report_updated_text"], "November 5, 2026 at 7:52am")
     # The lifts panel and the trails panel look identical; they are told apart
     # by "On hold" vs "Groomed", not by which appears first.
     check("lifts panel", (out.snow["lifts_open"], out.snow["lifts_total"]), (0, 17))
@@ -413,12 +418,15 @@ def t_mtn_powder():
           snowd.mtn_powder_url(r), "https://mtnpowder.com/feed?resortId=60")
     out = snowd.ADAPTERS["mtn_powder"].parse(r, body, "2026-11-05T18:30:00Z")
     check("mtn_powder status", out.status, "ok")
-    # Dual-unit at source, so neither side is computed.
-    check("base inches verbatim", out.snow["base_depth_in"], 20.0)
-    check("base cm verbatim (51, not 50.8)", out.snow["base_depth_cm"], 51.0)
+    # Dual-unit at source, so neither side is computed. Mammoth publishes
+    # 12" at Main Lodge, 15" at McCoy Station and 20" at the summit; the
+    # mid-mountain figure is the one taken.
+    check("mid-mountain inches verbatim", out.snow["base_depth_in"], 15.0)
+    check("mid-mountain cm verbatim (38, not 38.1)", out.snow["base_depth_cm"], 38.0)
+    check("elevation recorded", out.snow["reading_level"], "mid")
     check("season total", (out.snow["season_total_in"], out.snow["season_total_cm"]), (12.0, 30.0))
     check("recorded as dual-unit", out.snow["units_native"], "in,cm")
-    check("summit block used", out.snow["summit_readings"], "true")
+    check("not claimed as a summit reading", out.snow["summit_readings"], "false")
     check("lifts", (out.snow["lifts_open"], out.snow["lifts_total"]), (2, 25))
     check("trails", (out.snow["runs_open"], out.snow["runs_total"]), (3, 181))
     # ISO 8601 with an offset; left unparsed this silently became the fetch time.
@@ -429,14 +437,30 @@ def t_mtn_powder():
     check("'--' inches filled from the cm that was given",
           out.snow["snow_7d_in"], 0.0)
 
+    # Taking the summit produces outliers, not a useful number: Crystal
+    # Mountain publishes 0" at the base, 0" mid and 70" at the summit.
+    crystal = """{"SnowReport": {"LastUpdate": "2026-10-30T09:27:32-0700",
+      "BaseArea": {"BaseIn": "0", "BaseCm": "0"},
+      "MidMountainArea": {"BaseIn": "0", "BaseCm": "0"},
+      "SummitArea": {"BaseIn": "70", "BaseCm": "178"}}}"""
+    out = snowd.ADAPTERS["mtn_powder"].parse(r, crystal, "t")
+    check("mid-mountain wins over a summit outlier", out.snow["base_depth_in"], 0.0)
+    check("...and the level says which was used", out.snow["reading_level"], "mid")
+
+    # Several of them publish only one of the three.
     base_only = """{"SnowReport": {"LastUpdate": "2026-11-05T10:00:00-0700",
       "SummitArea": {"BaseIn": "--", "BaseCm": "--"},
       "MidMountainArea": {"BaseIn": "--", "BaseCm": "--"},
       "BaseArea": {"BaseIn": "30", "BaseCm": "76"}}}"""
     out = snowd.ADAPTERS["mtn_powder"].parse(r, base_only, "t")
-    check("falls down the elevations when the summit is empty",
-          out.snow["base_depth_in"], 30.0)
-    check("...and stops claiming a summit reading", out.snow["summit_readings"], "false")
+    check("falls back to the base area", out.snow["base_depth_in"], 30.0)
+    check("level says base", out.snow["reading_level"], "base")
+
+    summit_only = """{"SnowReport": {"LastUpdate": "2026-11-05T10:00:00-0700",
+      "SummitArea": {"BaseIn": "44", "BaseCm": "112"}}}"""
+    out = snowd.ADAPTERS["mtn_powder"].parse(r, summit_only, "t")
+    check("summit used only when it is all there is", out.snow["base_depth_in"], 44.0)
+    check("...and is flagged as a summit reading", out.snow["summit_readings"], "true")
 
     # Lots of resorts sit in this feed with a forecast and no snow report.
     check("forecast-only entry -> no_report",
@@ -459,12 +483,30 @@ def t_dedup():
           snowd._snow_identity(a), snowd._snow_identity(b))
 
     c = dict(a, report_updated_utc="2026-11-05T12:34:00Z", report_updated_text="y")
-    check("new publish stamp is a new row",
+    check("a new day is a new row",
           snowd._snow_identity(a) != snowd._snow_identity(c), True)
+
+    # Telluride stamps its page with the render time, so every fetch carried a
+    # new "publish" time with identical numbers — twelve rows in an afternoon.
+    bumped = dict(a, report_updated_utc="2026-11-04T19:58:00Z",
+                  observed_at="2026-11-04T19:58:10Z")
+    check("same day + same numbers collapses however the stamp moves",
+          snowd._snow_identity(a), snowd._snow_identity(bumped))
+    moved = dict(bumped, base_depth_in=19)
+    check("...but a changed number is a new row",
+          snowd._snow_identity(a) != snowd._snow_identity(moved), True)
+
+    # A report left up all summer must not become one row per day of polling.
+    june = {"resort_id": "stowe", "report_updated_utc": "2026-06-23T22:21:00Z",
+            "observed_at": "2026-11-04T19:00:00Z", "base_depth_in": 0}
+    june_later = dict(june, observed_at="2026-11-20T19:00:00Z")
+    check("an old report stays one row however long we poll it",
+          snowd._snow_identity(june), snowd._snow_identity(june_later))
 
     # no timestamp at all -> fall back to values + fetch date
     n1 = {"resort_id": "z", "report_updated_utc": "", "report_updated_text": "",
           "observed_at": "2026-11-04T19:00:00Z", "base_depth_in": 10}
+    # (no stamp: the day comes from when we fetched instead)
     n2 = dict(n1, observed_at="2026-11-04T23:00:00Z")
     n3 = dict(n1, observed_at="2026-11-05T19:00:00Z")
     n4 = dict(n1, base_depth_in=12)

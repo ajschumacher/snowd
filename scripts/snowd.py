@@ -576,11 +576,14 @@ def parse_telluride(resort: Resort, html: str, observed_at: str) -> FetchResult:
         return FetchResult(resort.resort_id, "no_report",
                            "page served but no labelled snow figures")
 
+    # Telluride's "Last Updated" is the time the page was rendered, not the
+    # time the report was written: fetch it twice a minute apart and it tracks
+    # the clock. Recording it as a publish time made every single fetch look
+    # like a fresh report, so it is kept as text and never as a timestamp.
     m = _TSR_UPDATED.search(html)
     updated_text = _text(m.group(1)) if m else ""
-    report_utc = parse_report_timestamp(updated_text, resort.tz) or ""
-    stamp = (datetime.strptime(report_utc, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
-             if report_utc else datetime.now(timezone.utc))
+    report_utc = ""
+    stamp = datetime.now(timezone.utc)
 
     cond = _TSR_COND.search(html)
     row: dict = {
@@ -959,17 +962,19 @@ def parse_mtn_powder(resort: Resort, body: str, observed_at: str) -> FetchResult
     stamp = (datetime.strptime(report_utc, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
              if report_utc else datetime.now(timezone.utc))
 
-    # Base depth comes at Base / Mid Mountain / Summit. Take the highest block
-    # that actually carries numbers, which matches what every other source here
-    # calls base depth, and say so with summit_readings.
-    areas = [("SummitArea", True), ("MidMountainArea", False), ("BaseArea", False)]
-    area, at_summit = {}, False
-    for key, is_summit in areas:
+    # Base depth comes at Base / Mid Mountain / Summit, and picking the summit
+    # produces outliers rather than a useful number: Crystal Mountain publishes
+    # 0" at the base, 0" mid and 70" at the summit. Mid-mountain is the figure
+    # a skier means by "base depth", so it wins, then the base area, and the
+    # summit only when it is all that is given.
+    areas = [("MidMountainArea", "mid"), ("BaseArea", "base"), ("SummitArea", "summit")]
+    area, level = {}, ""
+    for key, name in areas:
         block = report.get(key)
         if isinstance(block, dict) and any(
             _mp_num(block, f, "In") is not None for f in MP_AREA_METRICS
         ):
-            area, at_summit = block, is_summit
+            area, level = block, name
             break
 
     conditions = str(report.get("BaseConditions") or "").strip()
@@ -980,7 +985,8 @@ def parse_mtn_powder(resort: Resort, body: str, observed_at: str) -> FetchResult
         "report_updated_utc": report_utc,
         "report_updated_text": updated_text,
         "overall_conditions": "" if conditions in ("--", "-") else conditions,
-        "summit_readings": "true" if at_summit else "false",
+        "summit_readings": "true" if level == "summit" else "false",
+        "reading_level": level,
         "vail_resort_id": "",
     }
 
@@ -1109,6 +1115,8 @@ SNOW_COLUMNS = [
     "overall_conditions", "summit_readings", "vail_resort_id",
     # Which unit the source actually published; the other one is computed.
     "units_native",
+    # which elevation a multi-station source was read at (mid / base / summit)
+    "reading_level",
     # Only some sources publish these. Vail's snow report page does not embed
     # them at all, so they stay blank for Vail-operated resorts.
     "lifts_open", "lifts_total", "runs_open", "runs_total", "runs_groomed",
@@ -1143,17 +1151,24 @@ def _write_csv(path: Path, columns: list[str], rows: list[dict]) -> None:
 def _snow_identity(row: dict) -> tuple:
     """What makes a snow observation 'the same' observation.
 
-    Keyed on the resort's own publish timestamp where they give us one: if the
-    resort has not refreshed its report, re-running the fetch adds nothing, no
-    matter how often we poll. Where no timestamp is published, fall back to the
-    measured values themselves, so an unchanged report still collapses.
+    A row earns its place by carrying a different measurement, or by being on a
+    different day. Keying on the publish timestamp alone was not enough: a
+    resort that touches that stamp without changing a single number — Telluride
+    stamps its page with the render time — produced a new row on every fetch,
+    twelve identical readings in one afternoon.
+
+    Keying on the values alone is also wrong, because a resort sitting at the
+    same depth for a week is genuinely a week of observations, not one. So:
+    same resort, same day, same numbers is the same row.
+
+    The day comes from the resort's own publish date where there is one, which
+    is what keeps a report left up all summer to a single row rather than one
+    per day of polling.
     """
     stamp = (row.get("report_updated_utc") or "").strip()
-    text = (row.get("report_updated_text") or "").strip()
-    if stamp or text:
-        return (row["resort_id"], "stamp", stamp or text)
+    day = stamp[:10] if stamp else (row.get("observed_at") or "")[:10]
     vals = tuple(str(row.get(c, "")) for c in SNOW_COLUMNS if c.endswith(("_in", "_cm")))
-    return (row["resort_id"], "values", (row.get("observed_at") or "")[:10], vals)
+    return (row["resort_id"], day, vals)
 
 
 def append_snow(rows: list[dict], season: str) -> tuple[int, int]:
