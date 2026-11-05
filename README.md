@@ -3,7 +3,7 @@
 Tracks snow conditions across the Epic Pass resorts over a season, stores the
 history as CSV in this repo, and ships a static map + table viewer.
 
-**Live site: <https://planspace.org/snowd/>** — updated every four hours.
+**Live site: <https://planspace.org/snowd/>** — refreshed a few times a day.
 
 ![resorts](https://img.shields.io/badge/resorts-59-blue) ![reporting](https://img.shields.io/badge/with%20snow%20data-44-blue) ![source](https://img.shields.io/badge/source-resort%20snow%20reports-blue)
 
@@ -164,6 +164,12 @@ Other options:
 python3 scripts/fetch.py --dry-run --only vail,keystone
 ```
 
+Check every adapter against the live sites — not the captured fixtures:
+
+```bash
+python3 scripts/check_live.py
+```
+
 Then open the viewer:
 
 ```bash
@@ -183,11 +189,17 @@ numbers — and this site is served with `cache-control: max-age=2678400`, so
 
 ### Keeping it updated
 
-`.github/workflows/update.yml` runs every four hours (at :45), commits any new
-rows, and redeploys the site. Nothing depends on it being punctual: rows are
-keyed on each resort's own publish timestamp, so a run that finds no fresh
-report writes nothing and commits nothing, and skipping three days just leaves
-a gap.
+`.github/workflows/update.yml` is scheduled every three hours, commits any new
+rows, and redeploys the site.
+
+**It does not run every three hours.** GitHub queues scheduled workflows on a
+shared pool and drops them under load; on this repo's first day only 2 of 6
+scheduled slots fired, and both of those were late. Nothing depends on it being
+punctual — rows are keyed on each resort's own publish timestamp, so a run that
+finds no fresh report writes nothing and commits nothing, and skipping a day
+just leaves a gap — but the cadence is "a few times a day", not a guarantee.
+The cron sits at an uncommon minute rather than on the hour or at `:45`, which
+is where the contention is worst.
 
 The fetch and the Pages deploy are deliberately in the **same** workflow run. A
 commit pushed with `GITHUB_TOKEN` does not trigger other workflows, so a
@@ -195,7 +207,8 @@ separate push-triggered Pages workflow would never see the data the fetch had
 just committed.
 
 To run it locally instead, any scheduler works — e.g. a launchd agent or
-`45 */4 * * * cd /path/to/snowd && /usr/bin/python3 scripts/fetch.py`.
+`23 */3 * * * cd /path/to/snowd && /usr/bin/python3 scripts/fetch.py` — and a
+local cron is considerably more punctual than GitHub's.
 
 ## Data
 
@@ -292,7 +305,7 @@ resort that publishes no timestamp at all.
 data/      resorts.csv, snow_<season>.csv, forecast_<season>.csv
            last_run.json (local run log, gitignored)
 scripts/   snowd.py (library + adapters), fetch.py (CLI), build_site_data.py
-           test_snowd.py (offline self-checks)
+           test_snowd.py (offline self-checks), check_live.py (live checks)
 site/      index.html (viewer), data.js (generated)
 tests/     fixtures/ — a captured response per adapter, so the parsers are
            tested against real markup without touching the network
@@ -313,6 +326,16 @@ tests/     fixtures/ — a captured response per adapter, so the parsers are
 - **No backfill.** History starts the day the first fetch ran; the charts fill
   in from there.
 - **Partner resorts** have no snow source yet (see Coverage).
-- The resort sites are a CMS, not an API. If Vail changes the page structure,
-  the parser needs updating — a resort that starts failing shows as `error` in
-  the run output and `data/last_run.json`.
+- These are web pages, not APIs. When a site is redesigned its parser needs
+  updating; a resort that starts failing outright shows as `error` in the run
+  output and `data/last_run.json`. The quieter failure is a parser that still
+  runs and returns nothing, which looks exactly like a resort between seasons —
+  that is what `scripts/check_live.py` is for. It asserts the markup each
+  parser leans on is still present, and flags an adapter where *none* of its
+  resorts returned data.
+- **Fixtures go stale, and can be wrong from birth.** Sölden's page negotiates
+  language: captured with a plain request it came back German, while the
+  fetcher sends an English `Accept-Language` and got English labels that
+  matched nothing. The offline test passed and the live fetch returned
+  nothing. Fixtures prove a parser still reads what it read before — only
+  `check_live.py` proves it still reads the site.

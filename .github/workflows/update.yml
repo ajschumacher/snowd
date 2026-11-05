@@ -2,12 +2,19 @@ name: Update snow data and deploy site
 
 on:
   schedule:
-    # Every 4 hours at :45 — resorts post their morning report around
-    # 12:30-14:00 UTC, so the 12:45 run picks it up promptly and nothing is
-    # ever more than four hours stale. Extra runs are free: rows de-duplicate
-    # on each resort's own publish timestamp, so a run with no new report
-    # writes nothing and commits nothing.
-    - cron: "45 */4 * * *"
+    # Every three hours, at an uncommon minute.
+    #
+    # Resorts post their morning report around 12:30-14:00 UTC, so the 12:23
+    # and 15:23 slots bracket it. But GitHub queues scheduled workflows on a
+    # shared pool and drops them under load: on this repo's first day only
+    # 2 of 6 slots at "45 */4" actually fired, and both were late. Hence
+    # eight slots rather than six, and :23 rather than the hour or :45,
+    # where contention is worst.
+    #
+    # Extra runs cost nothing: rows de-duplicate on each resort's own publish
+    # timestamp, so a run with no new report writes nothing and commits
+    # nothing. More chances is the fix; a tighter promise is not.
+    - cron: "23 */3 * * *"
   workflow_dispatch:
   push:
     branches: [main]

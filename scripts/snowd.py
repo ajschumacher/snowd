@@ -881,20 +881,46 @@ def parse_soelden(resort: Resort, html: str, observed_at: str) -> FetchResult:
 
 @dataclass
 class Adapter:
-    """Where to GET a resort's report, and how to read what comes back."""
+    """Where to GET a resort's report, and how to read what comes back.
 
-    url: object      # Resort -> str
-    parse: object    # (Resort, str, str) -> FetchResult
+    `markers` are the strings in the response this parser depends on. They are
+    not used in normal fetching — `scripts/check_live.py` asserts they are
+    still there, so a site's redesign is caught deliberately instead of being
+    noticed weeks later as a column that quietly went blank.
+    """
+
+    url: object                    # Resort -> str
+    parse: object                  # (Resort, str, str) -> FetchResult
+    markers: tuple[str, ...] = ()
 
 
 ADAPTERS: dict[str, Adapter] = {
-    "vail_cms": Adapter(lambda r: r.snow_report_url, parse_page),
-    "rcr_refresh": Adapter(rcr_url, parse_rcr),
-    "telluride": Adapter(telluride_url, parse_telluride),
-    "rusutsu": Adapter(rusutsu_url, parse_rusutsu),
-    "kitzsteinhorn": Adapter(kitzsteinhorn_url, parse_kitzsteinhorn),
-    "arlberg": Adapter(arlberg_url, parse_arlberg),
-    "soelden": Adapter(soelden_url, parse_soelden),
+    "vail_cms": Adapter(
+        lambda r: r.snow_report_url, parse_page,
+        # Pre-season pages omit the component entirely, so this marker is
+        # expected to be absent at a resort that has not opened.
+        ("FR.snowReportData",)),
+    "rcr_refresh": Adapter(
+        rcr_url, parse_rcr,
+        ("snowReportNewSnowFallPack", "snowReportNewSnowFallYTD",
+         "snowReportTH_SnowreportRecentSnowSaveDate")),
+    "telluride": Adapter(
+        telluride_url, parse_telluride,
+        ("Snow depth", "Season total", "Last Updated:", "tsr-report-app-lifts-wrapper")),
+    "rusutsu": Adapter(
+        rusutsu_url, parse_rusutsu,
+        ("<dt>", "Total Snowfall", "Update Date")),
+    "kitzsteinhorn": Adapter(
+        kitzsteinhorn_url, parse_kitzsteinhorn,
+        ("weather-table--snow", "weather-table__location", "weather-table__month")),
+    "arlberg": Adapter(
+        arlberg_url, parse_arlberg,
+        ("snow-report-box__item", "Mountain", "Valley")),
+    "soelden": Adapter(
+        # The English labels are the point: the site answers our
+        # Accept-Language with English even though the URL says nothing.
+        soelden_url, parse_soelden,
+        ("live-info-tile__title", "fst--bodytext--small", "Snow report")),
 }
 
 
