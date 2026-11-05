@@ -5,7 +5,7 @@ history as CSV in this repo, and ships a static map + table viewer.
 
 **Live site: <https://planspace.org/snowd/>** — updated every four hours.
 
-![resorts](https://img.shields.io/badge/resorts-59-blue) ![reporting](https://img.shields.io/badge/with%20snow%20data-40-blue) ![source](https://img.shields.io/badge/source-resort%20snow%20reports-blue)
+![resorts](https://img.shields.io/badge/resorts-59-blue) ![reporting](https://img.shields.io/badge/with%20snow%20data-42-blue) ![source](https://img.shields.io/badge/source-resort%20snow%20reports-blue)
 
 ## Why this exists
 
@@ -56,6 +56,19 @@ cannot silently misattribute a number:
 
 Also lifts and trails open. Inches only.
 
+**`rusutsu`** (1 resort) — label/value pairs in the page, published **per
+mountain** rather than per resort: West Mt., East Mt. and Mt. Isola each get
+their own reading and there is no resort-wide figure, so the deepest wins. Its
+"Update Date" is day-first (`23/10/2026`), which a month-first reading would
+silently turn into a different date for any day below the 13th, so that format
+is pinned in the adapter rather than guessed. Centimetres only.
+
+**`kitzsteinhorn`** (1 resort) — base depth at several measuring stations up
+the mountain (valley 0 cm, mid 50 cm, glacier 75 cm) and *nothing else*: no
+season total, no recent snowfall. The highest station wins, flagged
+`summit_readings`. Its table is headed by a day and month with **no year**, so
+the adapter picks the year that puts the date nearest today. Centimetres only.
+
 ### Units, and what "converted" means
 
 Only Vail publishes both units. The partner sources publish one, so the other
@@ -74,10 +87,19 @@ permitted by its site's `robots.txt`.
 | Vail-operated, North America | 35 | ✅ full | `vail_cms` |
 | RCR, western Canada | 4 | ✅ full | `rcr_refresh` |
 | Telluride | 1 | ✅ full | `telluride` |
+| Rusutsu | 1 | season total | `rusutsu` |
+| Kitzsteinhorn | 1 | base depth | `kitzsteinhorn` |
 | Vail-operated, Australia | 3 | location only | — |
-| Partner / international | 16 | location only | — |
+| Partner / international | 14 | location only | — |
 
-The 19 resorts without snow data are **mapped and in the table** with
+Not every source publishes every metric, and the schema does not pretend
+otherwise: Kitzsteinhorn gives a base depth and nothing else, Rusutsu a season
+total and nothing else (its per-mountain depths read `--` until it opens in
+late November). A resort that reports some metrics but not the one the map is
+coloured by shows as a filled grey marker reading "not reported", distinct from
+the hollow "no report yet".
+
+The 17 resorts without snow data are **mapped and in the table** with
 coordinates and metadata, marked "no report yet". Adding one means writing an
 adapter and setting its `data_source` in `data/resorts.csv`; no schema or UI
 change is needed.
@@ -87,8 +109,10 @@ Falls Creek and Mount Hotham ski the southern winter, and their sites serve
 summer content until June. RCR's two Quebec resorts (Mont-Sainte-Anne,
 Stoneham) run the same `refresh.php` mechanism under different field names, and
 publish no base depth at all while closed — worth revisiting once they open in
-December. The rest (the Austrian, Swiss, French, Italian and Japanese partners)
-are each a separate piece of work, and several render client-side.
+December. The rest (the remaining Austrian, Swiss, French and Italian partners,
+and Hakuba) are each a separate piece of work, and several render client-side.
+Three Austrian sites sit behind the same vendor, Intermaps, which may or may
+not mean a shared endpoint — unprobed so far.
 
 Early in the season most North American resorts have not published a report
 yet — they appear as hollow markers and fill in as they open. Some still show

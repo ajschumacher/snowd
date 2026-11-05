@@ -253,6 +253,68 @@ def t_telluride():
           "no_report")
 
 
+def t_rusutsu():
+    body = (FIXTURES / "rusutsu_snow_report.html").read_text(encoding="utf-8")
+    r = _resort("rusutsu")
+    check("rusutsu is on its own adapter", r.data_source, "rusutsu")
+    out = snowd.ADAPTERS["rusutsu"].parse(r, body, "2026-11-05T16:00:00Z")
+    check("rusutsu status", out.status, "ok")
+    # Captured pre-season: every per-mountain figure reads "--", and only the
+    # season total carries a real number. "--" must read as absent, not zero.
+    check("'--' is absent, not zero", out.snow["base_depth_cm"], "")
+    check("a real zero is kept", out.snow["season_total_cm"], 0.0)
+    check("native unit is cm", out.snow["units_native"], "cm")
+    # "23/10/2026(Fri.) 12:32" is day-first; read as month-first it would be
+    # a different date entirely for any day below the 13th.
+    check("day-first date, JST", out.snow["report_updated_utc"], "2026-10-23T03:32:00Z")
+
+    # three mountains, three readings, no resort-wide figure: deepest wins
+    many = ("<dl><dt>Snow Accumulation</dt><dd>90cm</dd></dl>"
+            "<dl><dt>Snow Accumulation</dt><dd>140cm</dd></dl>"
+            "<dl><dt>Snow Accumulation</dt><dd>120cm</dd></dl>"
+            "<dl><dt>Snow Quality</dt><dd>--</dd></dl>"
+            "<dl><dt>Snow Quality</dt><dd>Powder</dd></dl>")
+    out = snowd.ADAPTERS["rusutsu"].parse(r, many, "t")
+    check("deepest mountain wins", out.snow["base_depth_cm"], 140.0)
+    check("first real snow quality wins over '--'",
+          out.snow["overall_conditions"], "Powder")
+
+    # the page has shipped "Snow Sccumulation" for a while; both must work
+    typo = "<dl><dt>Snow Sccumulation</dt><dd>55cm</dd></dl>"
+    check("misspelled label still read",
+          snowd.ADAPTERS["rusutsu"].parse(r, typo, "t").snow["base_depth_cm"], 55.0)
+
+    check("no labelled pairs -> no_report",
+          snowd.ADAPTERS["rusutsu"].parse(r, "<html>closed</html>", "t").status, "no_report")
+    check("every figure '--' -> no_report",
+          snowd.ADAPTERS["rusutsu"].parse(
+              r, "<dl><dt>Snow Accumulation</dt><dd>--cm</dd></dl>", "t").status, "no_report")
+
+
+def t_kitzsteinhorn():
+    body = (FIXTURES / "kitzsteinhorn_weather.html").read_text(encoding="utf-8")
+    r = _resort("kitzsteinhorn")
+    check("kitzsteinhorn is on its own adapter", r.data_source, "kitzsteinhorn")
+    out = snowd.ADAPTERS["kitzsteinhorn"].parse(r, body, "2026-11-05T16:00:00Z")
+    check("kitzsteinhorn status", out.status, "ok")
+    # Langwied 0cm, Alpincenter 50cm, Glacier 75cm — the highest station, not
+    # the first listed, and not the valley.
+    check("highest station wins", out.snow["base_depth_cm"], 75.0)
+    check("converted to inches", out.snow["base_depth_in"], 29.5)
+    check("flagged as an upper-mountain reading", out.snow["summit_readings"], "true")
+    check("this source publishes base depth only", out.snow["season_total_cm"], "")
+    # The table is headed "Nov / 05" with no year at all.
+    check("year inferred onto the table's day and month",
+          out.snow["report_updated_utc"], "2026-11-04T23:00:00Z")
+
+    check("no snow table -> no_report",
+          snowd.ADAPTERS["kitzsteinhorn"].parse(r, "<html>summer</html>", "t").status,
+          "no_report")
+    check("table but no readings -> no_report",
+          snowd.ADAPTERS["kitzsteinhorn"].parse(
+              r, '<div class="weather-table--snow"></details>', "t").status, "no_report")
+
+
 # ---------------------------------------------------------------- dedup
 def t_dedup():
     a = {"resort_id": "vail", "report_updated_utc": "2026-11-04T12:34:00Z",
@@ -341,6 +403,7 @@ def t_registry():
 def main() -> int:
     for fn in (t_seasons, t_timestamps, t_numbers, t_extraction,
                t_parse_page, t_units, t_text, t_rcr, t_telluride,
+               t_rusutsu, t_kitzsteinhorn,
                t_dedup, t_forecast_payload, t_registry):
         fn()
     if FAILED:

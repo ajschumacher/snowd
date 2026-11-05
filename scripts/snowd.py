@@ -15,6 +15,10 @@ resorts, which is the whole point — the four western RCR sites publish byte-fo
                 figure into the page by element id. Centimetres only.
   telluride     Server-rendered HTML, read by the visible label beside each
                 figure rather than by markup position. Inches only.
+  rusutsu       Label/value pairs, published per mountain rather than per
+                resort; the deepest wins. Centimetres only.
+  kitzsteinhorn Base depth at several measuring stations up the mountain, and
+                nothing else — the highest station wins. Centimetres only.
 
 Unlike Vail, the partner sources publish a single unit, so the other one is
 computed. Every row records which unit it was actually given in
@@ -586,6 +590,156 @@ def parse_telluride(resort: Resort, html: str, observed_at: str) -> FetchResult:
     return FetchResult(resort.resort_id, "ok", snow=fill_units(row, "in"))
 
 
+# ---------------------------------------------------------------- rusutsu
+
+#: Rusutsu publishes a `<dt>label</dt><dd>value</dd>` pair per figure, per
+#: mountain. The English page has misspelled one of those labels for a while;
+#: accepting both spellings costs nothing and keeps base depth from silently
+#: vanishing if they fix it — or if they don't.
+RUSUTSU_LABELS = {
+    "snow accumulation": "base_depth",
+    "snow sccumulation": "base_depth",   # sic, as published
+    "24-hour snowfall": "snow_24h",
+    "total snowfall": "season_total",
+}
+
+_RUS_PAIR = re.compile(r"<dt>\s*([^<]{3,40}?)\s*</dt>\s*<dd>\s*([^<]*?)\s*</dd>", re.S | re.I)
+_RUS_UPDATED = re.compile(r"Update Date\s*:\s*([^<]+)", re.I)
+#: "23/10/2026(Fri.) 12:32" — day first, which the generic parser would read
+#: as a month on any date below the 13th. Pinned here, where the format is known.
+_RUS_DMY = re.compile(r"(\d{1,2})/(\d{1,2})/(\d{4})(?:\([^)]*\))?\s*(\d{1,2}:\d{2})?")
+
+
+def rusutsu_url(resort: Resort) -> str:
+    return resort.snow_report_url
+
+
+def parse_rusutsu(resort: Resort, html: str, observed_at: str) -> FetchResult:
+    pairs = [(m.group(1).strip().lower(), m.group(2)) for m in _RUS_PAIR.finditer(html)]
+    if not any(lab in RUSUTSU_LABELS for lab, _ in pairs):
+        return FetchResult(resort.resort_id, "no_report", "page served but no labelled figures")
+
+    updated_text, report_utc = "", ""
+    m = _RUS_UPDATED.search(html)
+    if m:
+        updated_text = _text(m.group(1))
+        d = _RUS_DMY.search(updated_text)
+        if d:
+            iso = f"{d.group(3)}-{int(d.group(2)):02d}-{int(d.group(1)):02d}"
+            report_utc = parse_report_timestamp(
+                f"{iso} {d.group(4) or '00:00'}", resort.tz) or ""
+    stamp = (datetime.strptime(report_utc, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+             if report_utc else datetime.now(timezone.utc))
+
+    # Rusutsu is three mountains — West, East and Mt. Isola — each with its own
+    # reading, and publishes no single resort-wide figure. We take the deepest,
+    # which is the one a skier is choosing the resort for.
+    best: dict[str, float] = {}
+    for label, raw in pairs:
+        stem = RUSUTSU_LABELS.get(label)
+        v = _num(raw)
+        if stem is None or v is None:
+            continue
+        best[stem] = v if stem not in best else max(best[stem], v)
+
+    quality = ""
+    for label, raw in pairs:
+        if label == "snow quality" and _text(raw) not in ("", "--", "-"):
+            quality = _text(raw)
+            break
+
+    row: dict = {
+        "observed_at": observed_at,
+        "season": season_for(stamp, resort.hemisphere),
+        "resort_id": resort.resort_id,
+        "report_updated_utc": report_utc,
+        "report_updated_text": updated_text,
+        "overall_conditions": quality,
+        "summit_readings": "false",    # per-mountain readings, not summit vs base
+        "vail_resort_id": "",
+    }
+    for stem in DEPTH_STEMS:
+        row[f"{stem}_in"] = ""
+        row[f"{stem}_cm"] = best.get(stem, "")
+    if not best:
+        return FetchResult(resort.resort_id, "no_report",
+                           "report panel present but every figure is '--' (pre-season)")
+    return FetchResult(resort.resort_id, "ok", snow=fill_units(row, "cm"))
+
+
+# ------------------------------------------------------------ kitzsteinhorn
+
+_KITZ_TABLE = re.compile(r'weather-table--snow.*?</details>', re.S | re.I)
+_KITZ_ROW = re.compile(
+    r'weather-table__location">\s*([^<]+?)\s*<br\s*/?>\s*<small>\s*([\d.,]+)\s*m\s*</small>.*?'
+    r'weather-table__temperature">(.*?)</div>', re.S | re.I)
+_KITZ_MONTH = re.compile(r'weather-table__month">\s*([A-Za-zä]+)\s*<', re.I)
+_KITZ_DAY = re.compile(r'weather-table__day">\s*(\d{1,2})\s*<', re.I)
+
+
+def kitzsteinhorn_url(resort: Resort) -> str:
+    return resort.snow_report_url
+
+
+def parse_kitzsteinhorn(resort: Resort, html: str, observed_at: str) -> FetchResult:
+    table = _KITZ_TABLE.search(html)
+    if not table:
+        return FetchResult(resort.resort_id, "no_report", "no snow-depth table on the page")
+    block = table.group(0)
+
+    # Several measuring stations up the mountain. The glacier reading is the
+    # one the resort leads with, and the only one comparable to a "base depth"
+    # elsewhere, so take the highest station rather than the first listed.
+    stations = []
+    for m in _KITZ_ROW.finditer(block):
+        metres = _num(m.group(2).replace(".", "").replace(",", ""))
+        depth = _num(_text(m.group(3)))
+        if metres is not None and depth is not None:
+            stations.append((metres, _text(m.group(1)), depth))
+    if not stations:
+        return FetchResult(resort.resort_id, "no_report", "snow table present but no readings")
+    stations.sort()
+    depth = stations[-1][2]
+
+    # The table is headed by a day and month with no year. Choose the year that
+    # puts it nearest today, so a 31 December fetch of a 1 January table does
+    # not land twelve months out.
+    mon, day = _KITZ_MONTH.search(block), _KITZ_DAY.search(block)
+    report_utc, updated_text = "", ""
+    if mon and day:
+        now = datetime.now(timezone.utc)
+        updated_text = f"{mon.group(1)} {day.group(1)}"
+        best = None
+        for year in (now.year - 1, now.year, now.year + 1):
+            iso = parse_report_timestamp(f"{updated_text}, {year}", resort.tz)
+            if not iso:
+                continue
+            cand = datetime.strptime(iso, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+            if best is None or abs((cand - now).days) < abs((best - now).days):
+                best = cand
+        if best is not None:
+            report_utc = best.strftime("%Y-%m-%dT%H:%M:%SZ")
+            updated_text = f"{updated_text}, {best.year}"
+    stamp = (datetime.strptime(report_utc, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+             if report_utc else datetime.now(timezone.utc))
+
+    row: dict = {
+        "observed_at": observed_at,
+        "season": season_for(stamp, resort.hemisphere),
+        "resort_id": resort.resort_id,
+        "report_updated_utc": report_utc,
+        "report_updated_text": updated_text,
+        "overall_conditions": "",
+        "summit_readings": "true",
+        "vail_resort_id": "",
+    }
+    for stem in DEPTH_STEMS:
+        row[f"{stem}_in"] = ""
+        row[f"{stem}_cm"] = ""
+    row["base_depth_cm"] = depth
+    return FetchResult(resort.resort_id, "ok", snow=fill_units(row, "cm"))
+
+
 # ---------------------------------------------------------------- dispatch
 
 
@@ -601,6 +755,8 @@ ADAPTERS: dict[str, Adapter] = {
     "vail_cms": Adapter(lambda r: r.snow_report_url, parse_page),
     "rcr_refresh": Adapter(rcr_url, parse_rcr),
     "telluride": Adapter(telluride_url, parse_telluride),
+    "rusutsu": Adapter(rusutsu_url, parse_rusutsu),
+    "kitzsteinhorn": Adapter(kitzsteinhorn_url, parse_kitzsteinhorn),
 }
 
 

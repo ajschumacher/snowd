@@ -559,11 +559,18 @@ function drawMarkers(fit){
       className: "mk"
     });
     m._ring = has ? cssv("--m-ring") : cssv("--m-nodata");
-    var shown = val(obs, S.metric);
+    // A resort can be reporting and still not publish *this* metric —
+    // Kitzsteinhorn gives a base depth and nothing else, Rusutsu a season
+    // total and nothing else. Saying "– cm" would read as a measured nothing.
+    var shown = has ? val(obs, S.metric) : null;
     m.bindTooltip(
       '<span class="mk-tip">'+esc(r.name)+
-      (has ? ' — '+fmt(shown)+U[S.unit].suf : '')+
-      '<small>'+esc(place(r))+(has ? '' : ' · no report yet')+'</small></span>',
+      (shown === null || shown === undefined
+        ? '' : ' — '+(isConverted(obs, shown)?"≈":"")+fmt(shown)+U[S.unit].suf)+
+      '<small>'+esc(place(r))+
+        (!has ? ' · no report yet'
+              : (shown === null || shown === undefined ? ' · not reported' : ''))+
+      '</small></span>',
       {direction:"top", offset:[0,-4]}
     );
     m.on("click", function(){ selectFromMap(r.id); });

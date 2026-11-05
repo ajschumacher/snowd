@@ -45,7 +45,7 @@ nakiska,Nakiska,RCR,partner,CA,West,AB,skinakiska.com,https://skinakiska.com/con
 mont-sainte-anne,Mont-Sainte-Anne,RCR,partner,CA,Northeast,QC,mont-sainte-anne.com,,47.075,-70.911111,America/Toronto,
 stoneham,Stoneham,RCR,partner,CA,Northeast,QC,ski-stoneham.com,,47.0,-71.375,America/Toronto,
 hakuba-valley,Hakuba Valley,Partner,partner,JP,Japan,Nagano,hakubavalley.com,,36.698611,137.831944,Asia/Tokyo,
-rusutsu,Rusutsu Resort,Partner,partner,JP,Japan,Hokkaido,rusutsu.com,,42.743611,140.901389,Asia/Tokyo,
+rusutsu,Rusutsu Resort,Partner,partner,JP,Japan,Hokkaido,rusutsu.com,https://rusutsu.com/en/snow-and-weather-report/,42.743611,140.901389,Asia/Tokyo,rusutsu
 verbier-4-vallees,Verbier 4 Vallees,Partner,partner,CH,Europe,Valais,verbier4vallees.ch,,46.096111,7.228611,Europe/Zurich,
 crans-montana,Crans-Montana,Partner,partner,CH,Europe,Valais,crans-montana.ch,,46.3125,7.479167,Europe/Zurich,
 andermatt-sedrun-disentis,Andermatt-Sedrun-Disentis,Partner,partner,CH,Europe,Uri,andermatt-sedrun-disentis.ch,,46.636944,8.593889,Europe/Zurich,
@@ -55,6 +55,6 @@ silvretta-montafon,Silvretta Montafon,Partner,partner,AT,Europe,Vorarlberg,silvr
 zillertal,Zillertal,Partner,partner,AT,Europe,Tyrol,zillertal.at,,47.228611,11.858333,Europe/Vienna,
 saalbach,Saalbach Hinterglemm Leogang Fieberbrunn,Partner,partner,AT,Europe,Salzburg,saalbach.com,,47.391667,12.636111,Europe/Vienna,
 zell-am-see-kaprun,Zell am See-Kaprun,Partner,partner,AT,Europe,Salzburg,schmitten.at,,47.308333,12.783333,Europe/Vienna,
-kitzsteinhorn,Kitzsteinhorn,Partner,partner,AT,Europe,Salzburg,kitzsteinhorn.at,,47.188889,12.688889,Europe/Vienna,
+kitzsteinhorn,Kitzsteinhorn,Partner,partner,AT,Europe,Salzburg,kitzsteinhorn.at,https://www.kitzsteinhorn.at/en/service/information/weather-webcams,47.188889,12.688889,Europe/Vienna,kitzsteinhorn
 les-3-vallees,Les 3 Vallees,Partner,partner,FR,Europe,Savoie,les3vallees.com,,45.333333,6.566667,Europe/Paris,
 skirama-dolomiti,Skirama Dolomiti,Partner,partner,IT,Europe,Trentino,skirama.it,,46.229700,10.826200,Europe/Rome,
