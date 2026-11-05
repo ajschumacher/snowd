@@ -973,11 +973,12 @@ function setSub(){
   var asOf = freshest();
   el.textContent = D.resorts.length + " Epic Pass resorts · " + rep + " reporting snow for " +
     S.season + " · newest report " + (asOf ? ago(asOf) : "none yet");
-  var noSrc = D.resorts.filter(function(r){ return r.src !== "vail_cms"; }).length;
+  // "has no adapter", not "is not Vail" — several partner resorts are read now.
+  var noSrc = D.resorts.filter(function(r){ return !r.src; }).length;
   document.getElementById("foot").innerHTML =
     "Season <strong>"+esc(S.season)+"</strong>. "+
     rep+" of "+D.resorts.length+" resorts are publishing a snow report right now; "+
-    noSrc+" partner/international resorts are mapped but have no machine-readable source yet. "+
+    noSrc+" more are mapped but have no machine-readable source yet. "+
     "Favourites and display preferences are stored in this browser only.";
 }
 
