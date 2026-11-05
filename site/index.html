@@ -29,7 +29,7 @@
      ramp starts at the ordinal floor (step 250) instead of fading toward white;
      a paler first step disappears against the basemap. */
   --m0:#86b6ef; --m1:#6da7ec; --m2:#3987e5; --m3:#256abf; --m4:#184f95; --m5:#0d366b;
-  --m-ring:#ffffff; --m-nodata:#8a887e;
+  --m-ring:#ffffff; --m-nodata:#8a887e; --m-selected:#eb6834;
 }
 @media (prefers-color-scheme: dark){
   :root:where(:not([data-theme="light"])){
@@ -295,7 +295,12 @@ var S = {
   sortK:   LS.get("sortK", "base"),
   sortDir: LS.get("sortDir", -1),
   favs:    LS.get("favs", []),
-  sel:     null,
+  // Pinned and open are deliberately separate. `pinned` is a resort picked on
+  // the map, floated to the top of the table so it can be found; only a map
+  // click sets it. `open` is whichever row's detail is expanded, and opening a
+  // row never reorders the table — the row you clicked stays under your
+  // cursor.
+  pinned:  null,
   open:    null
 };
 if(D.seasons.indexOf(S.season) === -1) S.season = D.seasons[0] || "";
@@ -457,6 +462,21 @@ function initMap(){
   drawMarkers(true);
 }
 
+/** Ring the open resort's marker, so clicking a table row still shows you
+ *  where that resort is without moving the map under you. */
+function highlightMarker(id){
+  Object.keys(markers).forEach(function(k){
+    var m = markers[k];
+    if(!m) return;
+    if(k === id){
+      m.setStyle({color: cssv("--m-selected"), weight: 4});
+      m.bringToFront();
+    } else {
+      m.setStyle({color: m._ring, weight: 2});
+    }
+  });
+}
+
 function drawMarkers(fit){
   layer.clearLayers(); markers = {};
   var pts = [];
@@ -472,6 +492,7 @@ function drawMarkers(fit){
       weight: 2,
       className: "mk"
     });
+    m._ring = has ? cssv("--m-ring") : cssv("--m-nodata");
     var shown = val(obs, S.metric);
     m.bindTooltip(
       '<span class="mk-tip">'+esc(r.name)+
@@ -479,11 +500,12 @@ function drawMarkers(fit){
       '<small>'+esc(place(r))+(has ? '' : ' · no report yet')+'</small></span>',
       {direction:"top", offset:[0,-4]}
     );
-    m.on("click", function(){ select(r.id, true); });
+    m.on("click", function(){ selectFromMap(r.id); });
     m.addTo(layer);
     markers[r.id] = m;
     pts.push([r.lat, r.lon]);
   });
+  highlightMarker(S.open);
   if(fit && pts.length){
     // Open on the resorts actually reporting — fitting all 59 would zoom out to
     // the whole globe just to include the European and Japanese partners.
@@ -531,8 +553,8 @@ function render(){
     if(av > bv) return dir;
     return a.name.localeCompare(b.name);
   });
-  // pinned: the map-selected resort first, then favourites, then everything else
-  var rank = function(r){ return r.id === S.sel ? 0 : (S.favs.indexOf(r.id) !== -1 ? 1 : 2); };
+  // the map-pinned resort first, then favourites, then everything else
+  var rank = function(r){ return r.id === S.pinned ? 0 : (S.favs.indexOf(r.id) !== -1 ? 1 : 2); };
   rows.sort(function(a, b){ return rank(a) - rank(b); });
 
   var tb = document.getElementById("tbody");
@@ -546,7 +568,7 @@ function render(){
           ? '<span class="stale" title="'+esc(obs.upText||"")+'">'+ago(obs.up||obs.t)+'</span>'
           : '<span class="dim" title="'+esc(obs.upText||"")+'">'+ago(obs.up||obs.t)+'</span>');
     html +=
-      '<tr class="row'+(r.id===S.sel?" sel":"")+'" data-id="'+r.id+'" tabindex="0" aria-expanded="'+(S.open===r.id)+'">'+
+      '<tr class="row'+(r.id===S.open?" sel":"")+'" data-id="'+r.id+'" tabindex="0" aria-expanded="'+(S.open===r.id)+'">'+
         '<td class="l"><button class="star" aria-pressed="'+isFav+'" data-fav="'+r.id+'" '+
           'title="'+(isFav?"Remove from favourites":"Add to favourites")+'" '+
           'aria-label="'+(isFav?"Remove ":"Add ")+esc(r.name)+(isFav?" from":" to")+' favourites">'+(isFav?"★":"☆")+'</button></td>'+
@@ -749,17 +771,30 @@ function drawChart(svg, id, metric){
 }
 
 /* ------------------------------------------------ interactions */
-function select(id, fromMap){
-  S.sel = id;
+/** Map marker clicked: pin that resort to the top of the table and open it.
+ *
+ *  The viewport is deliberately not moved — scrolling the page down to the
+ *  table made tapping several markers in a row unusable, especially on a
+ *  phone.
+ */
+function selectFromMap(id){
+  S.pinned = id;
   S.open = id;
   render();
-  // A map click deliberately does NOT move the viewport. The row still pins to
-  // the top of the table, but scrolling the page there made tapping several
-  // markers in a row unusable, especially on a phone.
-  if(!fromMap && markers[id]){
-    map.panTo(markers[id].getLatLng(), {animate:true});
-    markers[id].openTooltip();
-  }
+  highlightMarker(id);
+}
+
+/** Table row clicked: just open or close its detail.
+ *
+ *  Nothing is reordered and the map is not panned, so the row stays put under
+ *  the cursor; the resort is only highlighted on the map so you can see where
+ *  it is. Pinning to the top is reserved for map clicks, where you have no
+ *  other way of finding the row.
+ */
+function toggleRow(id){
+  S.open = (S.open === id) ? null : id;
+  render();
+  highlightMarker(S.open);
 }
 
 document.getElementById("tbody").addEventListener("click", function(e){
@@ -774,17 +809,14 @@ document.getElementById("tbody").addEventListener("click", function(e){
   }
   var row = e.target.closest("tr.row");
   if(!row) return;
-  var id = row.dataset.id;
-  if(S.open === id){ S.open = null; render(); }
-  else { S.sel = id; select(id, false); }
+  toggleRow(row.dataset.id);
 });
 document.getElementById("tbody").addEventListener("keydown", function(e){
   if(e.key !== "Enter" && e.key !== " ") return;
   var row = e.target.closest && e.target.closest("tr.row");
   if(!row || e.target.closest("[data-fav]")) return;
   e.preventDefault();
-  var id = row.dataset.id;
-  if(S.open === id){ S.open = null; render(); } else { select(id, false); }
+  toggleRow(row.dataset.id);
 });
 
 document.querySelectorAll("#tbl thead th[data-k]").forEach(function(th){
