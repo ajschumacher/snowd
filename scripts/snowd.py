@@ -1,14 +1,25 @@
 #!/usr/bin/env python3
-"""snowd — shared library: fetch and parse Vail Resorts snow reports.
+"""snowd — shared library: fetch and parse resort snow reports.
 
-Vail-operated resort sites embed their snow report server-side as JSON in a
-`FR.snowReportData` assignment, carrying BOTH inches and centimeters for every
-metric. That means no unit conversion is ever needed: we store the source's own
-numbers in both units and let the UI pick.
+Each resort's `data_source` in the registry names an **adapter**: a pair of
+"where to GET" and "how to read what comes back". One adapter can serve many
+resorts, which is the whole point — the four western RCR sites publish byte-for
+-byte the same field names, so they cost one parser between them, not four.
 
-Companion assignments we also harvest:
-  FR.snowReportSettings  which metrics this resort publishes, + SnowAndWebcamResortId
-  FR.forecasts           multi-day + hourly forecast, also dual-unit
+  vail_cms      Vail-operated sites. The page embeds its snow report
+                server-side as `FR.snowReportData`, carrying BOTH inches and
+                centimeters for every metric, plus `FR.snowReportSettings` and
+                a dual-unit `FR.forecasts`.
+  rcr_refresh   Resorts of the Canadian Rockies. An undocumented endpoint,
+                /refresh/refresh.php, returns JavaScript that assigns each
+                figure into the page by element id. Centimetres only.
+  telluride     Server-rendered HTML, read by the visible label beside each
+                figure rather than by markup position. Inches only.
+
+Unlike Vail, the partner sources publish a single unit, so the other one is
+computed. Every row records which unit it was actually given in
+(`units_native`), so a converted figure is never passed off as the resort's own
+number.
 """
 
 from __future__ import annotations
@@ -98,7 +109,7 @@ def load_resorts(path: Path | None = None) -> list[Resort]:
                     latitude=float(row["latitude"]),
                     longitude=float(row["longitude"]),
                     timezone=row["timezone"],
-                    data_source=row["data_source"],
+                    data_source=(row.get("data_source") or "").strip(),
                 )
             )
     return out
@@ -231,7 +242,9 @@ def parse_report_timestamp(text: str, fallback_tz: ZoneInfo) -> str | None:
     if not text:
         return None
     s = re.sub(r"\s+", " ", str(text)).strip()
-    s = re.sub(r"^updated\s+", "", s, flags=re.I)
+    s = re.sub(r"^(?:last\s+)?updated\s*:?\s+", "", s, flags=re.I)
+    # RCR writes "NOVEMBER 5, 2026 | 7:26am"
+    s = s.replace("|", " ")
     # trailing timezone abbreviation, if any
     tzname = None
     m = re.search(r"\b([A-Z]{2,4})\s*$", s)
@@ -240,9 +253,12 @@ def parse_report_timestamp(text: str, fallback_tz: ZoneInfo) -> str | None:
         s = s[: m.start()].strip()
     s = re.sub(r"\bat\b", " ", s, flags=re.I)
     s = re.sub(r"(\d+)(st|nd|rd|th)\b", r"\1", s, flags=re.I)
+    # "7:26am" -> "7:26 am", so %p can match
+    s = re.sub(r"(\d)\s*([AaPp])\.?([Mm])\.?(?=\s|$)", r"\1 \2\3", s)
     s = re.sub(r"\s+", " ", s).strip()
     naive = None
     for fmt in (
+        "%Y-%m-%d %H:%M", "%Y-%m-%dT%H:%M:%S",
         "%B %d, %Y %I:%M %p", "%B %d %Y %I:%M %p",
         "%b %d, %Y %I:%M %p", "%b %d %Y %I:%M %p",
         "%B %d, %Y %H:%M", "%b %d, %Y %H:%M",
@@ -323,7 +339,8 @@ def parse_page(resort: Resort, html: str, observed_at: str) -> FetchResult:
             "snowReportData present but all metrics empty",
             forecast=fc_rows,
         )
-    return FetchResult(resort.resort_id, "ok", "", snow=row, forecast=fc_rows)
+    return FetchResult(resort.resort_id, "ok", "",
+                       snow=fill_units(row, "in,cm"), forecast=fc_rows)
 
 
 def _parse_forecast(resort: Resort, forecasts, observed_at: str) -> list[dict]:
@@ -367,17 +384,250 @@ def _blank(v):
     return "" if v is None else v
 
 
+# ---------------------------------------------------------------- units
+
+#: the six depth metrics every source is mapped onto
+DEPTH_STEMS = ("base_depth", "season_total", "snow_12h", "snow_24h", "snow_48h", "snow_7d")
+
+
+def fill_units(row: dict, native: str) -> dict:
+    """Compute the unit a source does not publish, and record which it gave us.
+
+    Vail hands us inches *and* centimetres, so nothing is ever computed there.
+    Every partner source publishes exactly one, so the other is arithmetic — and
+    that has to be visible, or a derived number would read as the resort's own.
+    `units_native` is that record: "in,cm", "cm" or "in".
+    """
+    row["units_native"] = native
+    for stem in DEPTH_STEMS:
+        inches, cm = row.get(f"{stem}_in", ""), row.get(f"{stem}_cm", "")
+        if inches == "" and cm != "":
+            row[f"{stem}_in"] = round(float(cm) / 2.54, 1)
+        elif cm == "" and inches != "":
+            row[f"{stem}_cm"] = round(float(inches) * 2.54, 1)
+    return row
+
+
+_TAG = re.compile(r"<[^>]*>")
+_SUBTITLE = re.compile(r"<span[^>]*subtitle[^>]*>.*?</span>", re.S | re.I)
+
+
+def _text(html: str) -> str:
+    """Visible text of a small HTML fragment.
+
+    RCR's condition fields carry a styled "UPPER MTN" caption alongside the
+    actual word, so that span is dropped whole rather than flattened — else
+    every resort would report its conditions as "UPPER MTN".
+    """
+    if not html:
+        return ""
+    out = _SUBTITLE.sub(" ", str(html))
+    out = _TAG.sub(" ", out)
+    for ent, ch in (("&nbsp;", " "), ("&amp;", "&"), ("&deg;", "°"),
+                    ("&quot;", '"'), ("&#8211;", "-"), ("&#039;", "'")):
+        out = out.replace(ent, ch)
+    return re.sub(r"\s+", " ", out).strip()
+
+
+def _int(val):
+    n = _num(val)
+    return "" if n is None else int(n)
+
+
+# ---------------------------------------------------------------- rcr_refresh
+
+#: Resorts of the Canadian Rockies. All four western sites run the same CMS and
+#: publish the same element ids, so this map is the whole adapter's per-resort
+#: configuration — there isn't any. Centimetres throughout (the page labels
+#: each figure "CM").
+RCR_FIELDS = {
+    "snowReportNewSnowFallOvernight": "snow_12h",
+    "snowReportNewSnowFall24": "snow_24h",
+    "snowReportNewSnowFall48": "snow_48h",
+    "snowReportNewSnowFall7days": "snow_7d",
+    "snowReportNewSnowFallPack": "base_depth",
+    "snowReportNewSnowFallYTD": "season_total",
+}
+
+RCR_COUNTS = {
+    "snowReportLiftsOpen": "lifts_open",
+    "snowReportRunsOpen": "runs_open",
+    "snowReportRunsGroomed": "runs_groomed",
+}
+
+#: `getElementById('x').innerHTML = "y";` — either quote character, escapes
+#: respected, so an apostrophe inside a value does not truncate it.
+_RCR_ASSIGN = re.compile(
+    r"""getElementById\(\s*['"]([A-Za-z0-9_]+)['"]\s*\)\s*\.innerHTML\s*=\s*"""
+    r"""(['"])((?:\\.|(?!\2).)*)\2""",
+    re.S,
+)
+
+
+def rcr_url(resort: Resort) -> str:
+    return f"https://{resort.domain}/refresh/refresh.php"
+
+
+def parse_rcr(resort: Resort, body: str, observed_at: str) -> FetchResult:
+    fields = {m.group(1): m.group(3) for m in _RCR_ASSIGN.finditer(body)}
+    if not fields:
+        return FetchResult(resort.resort_id, "error",
+                           "refresh.php returned no innerHTML assignments")
+
+    # Two stamps are published; the one on the snow block is the one that
+    # describes these numbers. The lift and terrain blocks carry their own,
+    # often months stale, and must not be mistaken for it.
+    updated_text = _text(fields.get("snowReportTH_SnowreportRecentSnowSaveDate")
+                         or fields.get("snowReportTH_SnowreportTodaySaveDate") or "")
+    report_utc = parse_report_timestamp(updated_text, resort.tz) or ""
+    stamp = (datetime.strptime(report_utc, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+             if report_utc else datetime.now(timezone.utc))
+
+    row: dict = {
+        "observed_at": observed_at,
+        "season": season_for(stamp, resort.hemisphere),
+        "resort_id": resort.resort_id,
+        "report_updated_utc": report_utc,
+        "report_updated_text": updated_text,
+        "overall_conditions": _text(fields.get("snowReportUpperMtnConditions")),
+        "summit_readings": "true",          # the upper-mountain reading
+        "vail_resort_id": "",
+    }
+    published = 0
+    for src, stem in RCR_FIELDS.items():
+        cm = _num(fields.get(src))
+        row[f"{stem}_in"] = ""
+        row[f"{stem}_cm"] = "" if cm is None else cm
+        if cm is not None:
+            published += 1
+    for src, col in RCR_COUNTS.items():
+        row[col] = _int(fields.get(src))
+
+    if published == 0:
+        return FetchResult(resort.resort_id, "no_report",
+                           "refresh.php reachable but every snow field empty")
+    return FetchResult(resort.resort_id, "ok", snow=fill_units(row, "cm"))
+
+
+# ---------------------------------------------------------------- telluride
+
+#: Telluride renders server-side, and labels each figure in the markup beside
+#: it. Reading by label rather than by position survives a reordering of the
+#: panel, which a positional parser would silently misattribute.
+TELLURIDE_LABELS = {
+    "snow depth": "base_depth",
+    "season total": "season_total",
+    "snow overnight": "snow_12h",
+    "last 24 hours": "snow_24h",
+    "last 48 hours": "snow_48h",
+    "last 7 days": "snow_7d",
+}
+
+_TSR_PAIR = re.compile(
+    r"<span>\s*([^<]{3,40}?)\s*</span>\s*<span>\s*<strong>\s*([^<]*?)\s*</strong>", re.S | re.I)
+_TSR_COND = re.compile(
+    r"tsr-report-snow-condition.*?</strong>\s*</span>\s*(?:<br\s*/?>)?\s*<span>\s*([^<]*?)\s*</span>",
+    re.S | re.I)
+_TSR_UPDATED = re.compile(r"Last Updated:\s*([^<&]+)", re.I)
+_TSR_WRAPPER = re.compile(r"tsr-report-app-lifts-wrapper(.*?)</div>", re.S | re.I)
+_TSR_RATIO = re.compile(r">\s*(\d+)\s*/\s*(\d+)\s*<")
+
+
+def telluride_url(resort: Resort) -> str:
+    return resort.snow_report_url
+
+
+def parse_telluride(resort: Resort, html: str, observed_at: str) -> FetchResult:
+    pairs = {m.group(1).strip().lower(): m.group(2) for m in _TSR_PAIR.finditer(html)}
+    if not any(k in pairs for k in TELLURIDE_LABELS):
+        return FetchResult(resort.resort_id, "no_report",
+                           "page served but no labelled snow figures")
+
+    m = _TSR_UPDATED.search(html)
+    updated_text = _text(m.group(1)) if m else ""
+    report_utc = parse_report_timestamp(updated_text, resort.tz) or ""
+    stamp = (datetime.strptime(report_utc, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+             if report_utc else datetime.now(timezone.utc))
+
+    cond = _TSR_COND.search(html)
+    row: dict = {
+        "observed_at": observed_at,
+        "season": season_for(stamp, resort.hemisphere),
+        "resort_id": resort.resort_id,
+        "report_updated_utc": report_utc,
+        "report_updated_text": updated_text,
+        "overall_conditions": _text(cond.group(1)) if cond else "",
+        "summit_readings": "false",
+        "vail_resort_id": "",
+    }
+    published = 0
+    for label, stem in TELLURIDE_LABELS.items():
+        inches = _num(pairs.get(label))
+        row[f"{stem}_in"] = "" if inches is None else inches
+        row[f"{stem}_cm"] = ""
+        if inches is not None:
+            published += 1
+
+    # Two "x/y" panels: the lifts tab also shows "On hold", the trails tab
+    # "Groomed". Identify them by that, not by which comes first in the page.
+    for block in _TSR_WRAPPER.finditer(html):
+        chunk = block.group(1)
+        ratio = _TSR_RATIO.search(chunk)
+        if not ratio:
+            continue
+        opened, total = int(ratio.group(1)), int(ratio.group(2))
+        if re.search(r"groomed", chunk, re.I):
+            row["runs_open"], row["runs_total"] = opened, total
+        elif re.search(r"on hold", chunk, re.I):
+            row["lifts_open"], row["lifts_total"] = opened, total
+
+    if published == 0:
+        return FetchResult(resort.resort_id, "no_report", "snow panel present but empty")
+    return FetchResult(resort.resort_id, "ok", snow=fill_units(row, "in"))
+
+
+# ---------------------------------------------------------------- dispatch
+
+
+@dataclass
+class Adapter:
+    """Where to GET a resort's report, and how to read what comes back."""
+
+    url: object      # Resort -> str
+    parse: object    # (Resort, str, str) -> FetchResult
+
+
+ADAPTERS: dict[str, Adapter] = {
+    "vail_cms": Adapter(lambda r: r.snow_report_url, parse_page),
+    "rcr_refresh": Adapter(rcr_url, parse_rcr),
+    "telluride": Adapter(telluride_url, parse_telluride),
+}
+
+
 def fetch_resort(resort: Resort, observed_at: str) -> FetchResult:
-    if resort.data_source != "vail_cms" or not resort.snow_report_url:
+    """Fetch and parse one resort, isolating every failure to that resort.
+
+    A broken site, a changed page or a parser bug must cost one row, never the
+    run — the other resorts' numbers are still good.
+    """
+    adapter = ADAPTERS.get(resort.data_source)
+    if adapter is None:
         return FetchResult(resort.resort_id, "no_source", "no data source configured yet")
     try:
-        html = http_get(resort.snow_report_url)
+        url = adapter.url(resort)
+    except Exception as exc:  # noqa: BLE001
+        return FetchResult(resort.resort_id, "error", f"url: {type(exc).__name__}: {exc}"[:120])
+    if not url:
+        return FetchResult(resort.resort_id, "error",
+                           f"{resort.data_source} needs a snow_report_url")
+    try:
+        body = http_get(url)
     except urllib.error.HTTPError as exc:
         return FetchResult(resort.resort_id, "error", f"HTTP {exc.code}")
     except Exception as exc:  # noqa: BLE001
         return FetchResult(resort.resort_id, "error", f"{type(exc).__name__}: {exc}"[:120])
     try:
-        return parse_page(resort, html, observed_at)
+        return adapter.parse(resort, body, observed_at)
     except Exception as exc:  # noqa: BLE001
         return FetchResult(resort.resort_id, "error", f"parse: {type(exc).__name__}: {exc}"[:120])
 
@@ -394,6 +644,11 @@ SNOW_COLUMNS = [
     "snow_48h_in", "snow_48h_cm",
     "snow_7d_in", "snow_7d_cm",
     "overall_conditions", "summit_readings", "vail_resort_id",
+    # Which unit the source actually published; the other one is computed.
+    "units_native",
+    # Only some sources publish these. Vail's snow report page does not embed
+    # them at all, so they stay blank for Vail-operated resorts.
+    "lifts_open", "lifts_total", "runs_open", "runs_total", "runs_groomed",
 ]
 
 FORECAST_COLUMNS = [

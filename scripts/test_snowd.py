@@ -54,6 +54,14 @@ def t_timestamps():
     check("ordinal suffix",
           snowd.parse_report_timestamp("Updated November 4th, 2026 at 5:34 AM MST", mt),
           "2026-11-04T12:34:00Z")
+    check("RCR pipe format",
+          snowd.parse_report_timestamp("NOVEMBER 5, 2026 | 7:26am", mt),
+          "2026-11-05T14:26:00Z")
+    check("date with no time at all",
+          snowd.parse_report_timestamp("Nov 5, 2026", mt), "2026-11-05T07:00:00Z")
+    check("Telluride 'Last Updated:' prefix",
+          snowd.parse_report_timestamp("Last Updated: November 5, 2026 at 7:52am", mt),
+          "2026-11-05T14:52:00Z")
     check("unparseable -> None",
           snowd.parse_report_timestamp("Updated recently", mt), None)
     check("empty -> None", snowd.parse_report_timestamp("", mt), None)
@@ -143,6 +151,108 @@ def t_parse_page():
                            "t").status, "no_report")
 
 
+# ---------------------------------------------------------------- units
+def t_units():
+    row = {"base_depth_in": "", "base_depth_cm": 25.0,
+           "season_total_in": 12.0, "season_total_cm": ""}
+    for stem in snowd.DEPTH_STEMS:
+        row.setdefault(f"{stem}_in", "")
+        row.setdefault(f"{stem}_cm", "")
+    out = snowd.fill_units(dict(row), "cm")
+    check("cm fills inches", out["base_depth_in"], 9.8)
+    check("inches fills cm", out["season_total_cm"], 30.5)
+    check("native unit recorded", out["units_native"], "cm")
+    check("a blank metric stays blank", out["snow_24h_in"], "")
+
+    # a dual-unit source must come through untouched - no rounding drift
+    both = {f"{s}_{u}": "" for s in snowd.DEPTH_STEMS for u in ("in", "cm")}
+    both.update({"base_depth_in": 18.0, "base_depth_cm": 45.0})
+    out = snowd.fill_units(both, "in,cm")
+    check("dual-unit inches untouched", out["base_depth_in"], 18.0)
+    check("dual-unit cm untouched (45, not 45.7)", out["base_depth_cm"], 45.0)
+
+
+def t_text():
+    check("tags stripped", snowd._text("<b>Powder</b>"), "Powder")
+    # RCR puts a styled caption inside the conditions field; flattening it
+    # would make every resort's conditions read "UPPER MTN".
+    check("subtitle span dropped whole",
+          snowd._text("Powder<span class='rcr-element-box-conditions-subtitle'>UPPER MTN</span>"),
+          "Powder")
+    check("caption-only field is empty, not 'UPPER MTN'",
+          snowd._text("<span class='x-conditions-subtitle'>UPPER MTN</span>"), "")
+    check("entities decoded", snowd._text("Jones &amp; Co&nbsp;"), "Jones & Co")
+    check("empty stays empty", snowd._text(""), "")
+
+
+# ------------------------------------------------------- partner adapters
+FIXTURES = Path(__file__).resolve().parent.parent / "tests" / "fixtures"
+
+
+def _resort(rid):
+    return {r.resort_id: r for r in snowd.load_resorts()}[rid]
+
+
+def t_rcr():
+    body = (FIXTURES / "rcr_fernie_refresh.js").read_text(encoding="utf-8")
+    r = _resort("fernie")
+    check("fernie is on the rcr adapter", r.data_source, "rcr_refresh")
+    check("rcr url derives from the domain",
+          snowd.rcr_url(r), "https://skifernie.com/refresh/refresh.php")
+    out = snowd.ADAPTERS["rcr_refresh"].parse(r, body, "2026-11-05T15:00:00Z")
+    check("rcr status", out.status, "ok")
+    check("base depth in cm, verbatim", out.snow["base_depth_cm"], 10.0)
+    check("base depth converted to inches", out.snow["base_depth_in"], 3.9)
+    check("season total", out.snow["season_total_cm"], 35.0)
+    check("overnight snowfall", out.snow["snow_12h_cm"], 0.0)
+    check("native unit is cm", out.snow["units_native"], "cm")
+    check("lifts open captured", out.snow["lifts_open"], 0)
+    check("runs groomed captured", out.snow["runs_groomed"], 1)
+    # The snow block's own stamp, not the lift block's (which is months old).
+    check("stamp comes from the snow block",
+          out.snow["report_updated_utc"], "2026-11-05T13:26:00Z")
+    check("conditions field holds no caption text", out.snow["overall_conditions"], "")
+
+    # an apostrophe in a value must not truncate the next field
+    tricky = ("""document.getElementById('SnowreportComments').innerHTML= "it's deep";\n"""
+              """document.getElementById('snowReportNewSnowFallPack').innerHTML= "22 ";""")
+    out = snowd.ADAPTERS["rcr_refresh"].parse(r, tricky, "t")
+    check("apostrophe does not swallow the next field",
+          out.snow["base_depth_cm"], 22.0)
+
+    check("no assignments at all -> error",
+          snowd.ADAPTERS["rcr_refresh"].parse(r, "<html>down</html>", "t").status, "error")
+    check("assignments but no snow -> no_report",
+          snowd.ADAPTERS["rcr_refresh"].parse(
+              r, "document.getElementById('snowReportRunsOpen').innerHTML= \"0\";",
+              "t").status, "no_report")
+
+
+def t_telluride():
+    body = (FIXTURES / "telluride_snow_report.html").read_text(encoding="utf-8")
+    r = _resort("telluride")
+    check("telluride is on its own adapter", r.data_source, "telluride")
+    out = snowd.ADAPTERS["telluride"].parse(r, body, "2026-11-05T15:00:00Z")
+    check("telluride status", out.status, "ok")
+    check("snow depth read by its label", out.snow["base_depth_in"], 12.0)
+    check("season total read by its label", out.snow["season_total_in"], 12.0)
+    check("overnight read by its label", out.snow["snow_12h_in"], 6.0)
+    check("7-day read by its label", out.snow["snow_7d_in"], 6.0)
+    check("inches converted to cm", out.snow["base_depth_cm"], 30.5)
+    check("native unit is inches", out.snow["units_native"], "in")
+    check("conditions", out.snow["overall_conditions"], "Variable")
+    check("stamp parsed (7:52am MST)",
+          out.snow["report_updated_utc"], "2026-11-05T14:52:00Z")
+    # The lifts panel and the trails panel look identical; they are told apart
+    # by "On hold" vs "Groomed", not by which appears first.
+    check("lifts panel", (out.snow["lifts_open"], out.snow["lifts_total"]), (0, 17))
+    check("trails panel", (out.snow["runs_open"], out.snow["runs_total"]), (0, 149))
+
+    check("no labelled figures -> no_report",
+          snowd.ADAPTERS["telluride"].parse(r, "<html>summer</html>", "t").status,
+          "no_report")
+
+
 # ---------------------------------------------------------------- dedup
 def t_dedup():
     a = {"resort_id": "vail", "report_updated_utc": "2026-11-04T12:34:00Z",
@@ -210,8 +320,12 @@ def t_registry():
     bad_lon = [r.resort_id for r in rs if not (-180 <= r.longitude <= 180)]
     check("latitudes in range", bad_lat, [])
     check("longitudes in range", bad_lon, [])
-    no_url = [r.resort_id for r in rs if r.data_source == "vail_cms" and not r.snow_report_url]
-    check("every vail_cms resort has a url", no_url, [])
+    unknown = sorted({r.data_source for r in rs if r.data_source} - set(snowd.ADAPTERS))
+    check("every data_source names a real adapter", unknown, [])
+    # rcr_refresh derives its endpoint from the domain, but the registry's url
+    # is still the page a person reads, and the viewer links to it.
+    no_url = [r.resort_id for r in rs if r.data_source and not r.snow_report_url]
+    check("every configured resort has a report url", no_url, [])
     bad_tz = []
     for r in rs:
         try:
@@ -226,7 +340,8 @@ def t_registry():
 
 def main() -> int:
     for fn in (t_seasons, t_timestamps, t_numbers, t_extraction,
-               t_parse_page, t_dedup, t_forecast_payload, t_registry):
+               t_parse_page, t_units, t_text, t_rcr, t_telluride,
+               t_dedup, t_forecast_payload, t_registry):
         fn()
     if FAILED:
         print(f"FAILED ({len(FAILED)}):")

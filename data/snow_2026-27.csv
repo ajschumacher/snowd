@@ -1,11 +1,17 @@
-observed_at,season,resort_id,report_updated_utc,report_updated_text,base_depth_in,base_depth_cm,season_total_in,season_total_cm,snow_12h_in,snow_12h_cm,snow_24h_in,snow_24h_cm,snow_48h_in,snow_48h_cm,snow_7d_in,snow_7d_cm,overall_conditions,summit_readings,vail_resort_id
-2026-11-04T19:14:42Z,2026-27,beaver-creek,2026-11-04T12:34:00Z,"Updated November 04, 2026 at 5:34 AM MST",4.0,10.0,6.0,15.0,0.0,0.0,0.0,0.0,5.0,12.0,5.0,12.0,Early Season,false,2
-2026-11-04T19:14:42Z,2026-27,crested-butte,2026-11-02T19:00:00Z,"Updated November 02, 2026 at 12:00 PM MST",12.0,30.0,19.0,48.0,0.0,0.0,0.0,0.0,0.0,0.0,10.0,25.0,Early Season,false,15
-2026-11-04T19:14:42Z,2026-27,heavenly,2026-11-01T15:47:00Z,"Updated November 01, 2026 at 7:47 AM PST",0.0,0.0,7.0,17.0,0.0,0.0,0.0,0.0,0.0,0.0,7.0,17.0,Low Snowfall,false,50
-2026-11-04T19:14:42Z,2026-27,keystone,2026-11-04T12:34:00Z,"Updated November 04, 2026 at 5:34 AM MST",18.0,45.0,6.0,15.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,Early Season,false,3
-2026-11-04T19:14:42Z,2026-27,kirkwood,2026-11-01T18:00:00Z,"Updated November 01, 2026 at 10:00 AM PST",0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,,false,52
-2026-11-04T19:14:42Z,2026-27,northstar,2026-11-01T18:20:00Z,"Updated November 01, 2026 at 10:20 AM PST",0.0,0.0,8.0,20.0,0.0,0.0,0.0,0.0,0.0,0.0,8.0,20.0,,true,51
-2026-11-04T19:14:42Z,2026-27,vail,2026-11-04T12:34:00Z,"Updated November 04, 2026 at 5:34 AM MST",4.0,10.0,8.0,20.0,0.0,0.0,0.0,0.0,4.0,10.0,4.0,10.0,Early Season,false,1
-2026-11-04T19:14:42Z,2026-27,whistler-blackcomb,2026-10-21T14:36:00Z,"Updated October 21, 2026 at 7:36 AM PDT",0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,Low Snowfall,false,80
-2026-11-05T01:04:55Z,2026-27,park-city,2026-11-04T23:08:00Z,"Updated November 04, 2026 at 4:08 PM MST",0.0,0.0,5.0,12.0,0.0,0.0,0.0,0.0,0.0,0.0,5.0,12.0,Early Season,false,53
-2026-11-05T12:46:44Z,2026-27,keystone,2026-11-05T12:38:00Z,"Updated November 05, 2026 at 5:38 AM MST",18.0,45.0,7.0,17.0,1.0,2.0,1.0,2.0,1.0,2.0,1.0,2.0,Early Season,false,3
+observed_at,season,resort_id,report_updated_utc,report_updated_text,base_depth_in,base_depth_cm,season_total_in,season_total_cm,snow_12h_in,snow_12h_cm,snow_24h_in,snow_24h_cm,snow_48h_in,snow_48h_cm,snow_7d_in,snow_7d_cm,overall_conditions,summit_readings,vail_resort_id,units_native,lifts_open,lifts_total,runs_open,runs_total,runs_groomed
+2026-11-04T19:14:42Z,2026-27,beaver-creek,2026-11-04T12:34:00Z,"Updated November 04, 2026 at 5:34 AM MST",4.0,10.0,6.0,15.0,0.0,0.0,0.0,0.0,5.0,12.0,5.0,12.0,Early Season,false,2,,,,,,
+2026-11-04T19:14:42Z,2026-27,crested-butte,2026-11-02T19:00:00Z,"Updated November 02, 2026 at 12:00 PM MST",12.0,30.0,19.0,48.0,0.0,0.0,0.0,0.0,0.0,0.0,10.0,25.0,Early Season,false,15,,,,,,
+2026-11-04T19:14:42Z,2026-27,heavenly,2026-11-01T15:47:00Z,"Updated November 01, 2026 at 7:47 AM PST",0.0,0.0,7.0,17.0,0.0,0.0,0.0,0.0,0.0,0.0,7.0,17.0,Low Snowfall,false,50,,,,,,
+2026-11-04T19:14:42Z,2026-27,keystone,2026-11-04T12:34:00Z,"Updated November 04, 2026 at 5:34 AM MST",18.0,45.0,6.0,15.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,Early Season,false,3,,,,,,
+2026-11-04T19:14:42Z,2026-27,kirkwood,2026-11-01T18:00:00Z,"Updated November 01, 2026 at 10:00 AM PST",0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,,false,52,,,,,,
+2026-11-04T19:14:42Z,2026-27,northstar,2026-11-01T18:20:00Z,"Updated November 01, 2026 at 10:20 AM PST",0.0,0.0,8.0,20.0,0.0,0.0,0.0,0.0,0.0,0.0,8.0,20.0,,true,51,,,,,,
+2026-11-04T19:14:42Z,2026-27,vail,2026-11-04T12:34:00Z,"Updated November 04, 2026 at 5:34 AM MST",4.0,10.0,8.0,20.0,0.0,0.0,0.0,0.0,4.0,10.0,4.0,10.0,Early Season,false,1,,,,,,
+2026-11-04T19:14:42Z,2026-27,whistler-blackcomb,2026-10-21T14:36:00Z,"Updated October 21, 2026 at 7:36 AM PDT",0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,Low Snowfall,false,80,,,,,,
+2026-11-05T01:04:55Z,2026-27,park-city,2026-11-04T23:08:00Z,"Updated November 04, 2026 at 4:08 PM MST",0.0,0.0,5.0,12.0,0.0,0.0,0.0,0.0,0.0,0.0,5.0,12.0,Early Season,false,53,,,,,,
+2026-11-05T12:46:44Z,2026-27,keystone,2026-11-05T12:38:00Z,"Updated November 05, 2026 at 5:38 AM MST",18.0,45.0,7.0,17.0,1.0,2.0,1.0,2.0,1.0,2.0,1.0,2.0,Early Season,false,3,,,,,,
+2026-11-05T15:01:15Z,2026-27,fernie,2026-11-05T13:26:00Z,"NOVEMBER 5, 2026 | 7:26am",3.9,10.0,13.8,35.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,,true,,cm,0,,0,,1
+2026-11-05T15:01:15Z,2026-27,kicking-horse,2026-11-05T10:28:00Z,"NOVEMBER 5, 2026 | 4:28am",5.1,13.0,12.6,32.0,0.4,1.0,0.4,1.0,0.8,2.0,6.7,17.0,,true,,cm,0,,0,,0
+2026-11-05T15:01:15Z,2026-27,kimberley,2026-11-05T14:55:00Z,"NOVEMBER 5, 2026 | 8:55am",0.0,0.0,4.7,12.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,,true,,cm,0,,,,20
+2026-11-05T15:01:15Z,2026-27,nakiska,2026-11-05T14:29:00Z,"NOVEMBER 5, 2026 | 8:29am",5.9,15.0,9.1,23.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,Powder,true,,cm,0,,5,,5
+2026-11-05T15:01:15Z,2026-27,telluride,2026-11-05T15:01:00Z,"November 5, 2026 at 8:01am",12.0,30.5,12.0,30.5,6.0,15.2,0.0,0.0,0.0,0.0,6.0,15.2,Variable,false,,in,0,17,0,149,
+2026-11-05T15:01:15Z,2026-27,vail,2026-11-05T12:43:00Z,"Updated November 05, 2026 at 5:43 AM MST",4.0,10.0,10.0,25.0,2.0,5.0,2.0,5.0,2.0,5.0,6.0,15.0,Early Season,false,1,"in,cm",,,,,

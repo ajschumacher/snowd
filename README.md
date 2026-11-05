@@ -5,7 +5,7 @@ history as CSV in this repo, and ships a static map + table viewer.
 
 **Live site: <https://planspace.org/snowd/>** — updated every four hours.
 
-![resorts](https://img.shields.io/badge/resorts-59-blue) ![source](https://img.shields.io/badge/source-resort%20snow%20reports-blue)
+![resorts](https://img.shields.io/badge/resorts-59-blue) ![reporting](https://img.shields.io/badge/with%20snow%20data-40-blue) ![source](https://img.shields.io/badge/source-resort%20snow%20reports-blue)
 
 ## Why this exists
 
@@ -18,40 +18,77 @@ through the season, in a file you can query. That's the gap this fills.
 
 ## Where the numbers come from
 
-Every Vail-operated resort site embeds its snow report server-side as JSON:
+Each resort's `data_source` names an **adapter** — a pair of "where to GET" and
+"how to read what comes back". One adapter can serve many resorts, which is the
+point: the four western RCR sites publish byte-for-byte the same field names,
+so they cost one parser between them, not four.
+
+**`vail_cms`** (35 resorts) — the page embeds its snow report server-side:
 
 ```js
 FR.snowReportData = {"BaseDepth":{"Inches":"18","Centimeters":"45"}, ...}
 ```
 
-Two things follow from that, and they matter:
-
-- **Nothing is ever converted.** The source publishes both inches and
-  centimetres for every metric, so both are stored verbatim. The viewer shows
-  inches by default and can switch to cm without any arithmetic in between.
-- **It is the resort's own number**, the same one on their public snow report
-  page — not a third party's estimate.
-
-The page also carries `FR.forecasts` (5-day + hourly, dual-unit), which is
+It carries **both units for every metric**, so nothing is ever converted for a
+Vail resort. The page also has `FR.forecasts` (5-day + hourly, dual-unit),
 captured too.
 
-Fetching is a plain HTTP GET with an honest `User-Agent`; `/the-mountain/` and
-`/api/` are permitted by these sites' `robots.txt`.
+**`rcr_refresh`** (4 resorts) — Resorts of the Canadian Rockies run an
+undocumented endpoint, `/refresh/refresh.php`, which returns JavaScript that
+assigns each figure into the page by element id:
+
+```js
+document.getElementById('snowReportNewSnowFallPack').innerHTML= "10 ";
+```
+
+Fernie, Kicking Horse, Kimberley and Nakiska use identical ids, so the adapter
+needs no per-resort configuration at all — the endpoint derives from the
+domain. It gives *more* than Vail does: lifts and runs open, and runs groomed.
+Centimetres only.
+
+**`telluride`** (1 resort) — server-rendered HTML, read by the visible label
+beside each figure rather than by markup position, so a reordering of the panel
+cannot silently misattribute a number:
+
+```html
+<span>Snow depth</span> <span><strong>12"</strong></span>
+```
+
+Also lifts and trails open. Inches only.
+
+### Units, and what "converted" means
+
+Only Vail publishes both units. The partner sources publish one, so the other
+is arithmetic — and converting is not the same as reporting. Every row records
+which unit it was actually handed in (`units_native`), and the viewer marks a
+computed figure `≈`: switch units and Fernie's `≈3.9in` becomes its own
+`10cm`. Zero is exempt — 0 cm is exactly 0 in.
+
+Fetching is a plain HTTP GET with an honest `User-Agent`. Every path used is
+permitted by its site's `robots.txt`.
 
 ## Coverage
 
-| | Count | Snow data |
-|---|---|---|
-| Vail-operated, North America | 35 | ✅ full |
-| Vail-operated, Australia | 3 | location only |
-| Partner / international | 21 | location only |
+| | Count | Snow data | Adapter |
+|---|---|---|---|
+| Vail-operated, North America | 35 | ✅ full | `vail_cms` |
+| RCR, western Canada | 4 | ✅ full | `rcr_refresh` |
+| Telluride | 1 | ✅ full | `telluride` |
+| Vail-operated, Australia | 3 | location only | — |
+| Partner / international | 16 | location only | — |
 
-The 24 resorts without snow data are **mapped and in the table** with
-coordinates and metadata, marked "no report yet" — each is on its own bespoke
-platform (Verbier, Hakuba, Telluride, RCR Canada, the Austrian and French
-partners, and the southern-hemisphere resorts). Adding one is a matter of
-writing a parser and setting its `data_source` in `data/resorts.csv`; no schema
-or UI change is needed.
+The 19 resorts without snow data are **mapped and in the table** with
+coordinates and metadata, marked "no report yet". Adding one means writing an
+adapter and setting its `data_source` in `data/resorts.csv`; no schema or UI
+change is needed.
+
+Three of those are blocked by the calendar rather than by the site: Perisher,
+Falls Creek and Mount Hotham ski the southern winter, and their sites serve
+summer content until June. RCR's two Quebec resorts (Mont-Sainte-Anne,
+Stoneham) run the same `refresh.php` mechanism under different field names, and
+publish no base depth at all while closed — worth revisiting once they open in
+December. The rest (the Austrian, Swiss, French, Italian and Japanese partners)
+are each a separate piece of work, and several render client-side.
 
 Early in the season most North American resorts have not published a report
 yet — they appear as hollow markers and fill in as they open. Some still show
@@ -119,8 +156,11 @@ One row per resort: `resort_id`, `name`, `operator`, `epic_tier`, `country`,
 `region`, `state`, `domain`, `snow_report_url`, `latitude`, `longitude`,
 `timezone`, `data_source`.
 
-`data_source` is `vail_cms` for resorts we can read and empty otherwise — it is
-the switch that brings a resort into the fetch.
+`data_source` names the adapter that reads this resort, and is empty for the
+ones nothing reads yet — it is the switch that brings a resort into the fetch.
+`snow_report_url` is always **the page a person reads**, and what the viewer
+links to; where an adapter talks to a different endpoint it derives that
+itself.
 
 ### `data/snow_<season>.csv` — the history
 
@@ -129,10 +169,15 @@ One row per resort per published report. Both units for every metric:
 `observed_at`, `season`, `resort_id`, `report_updated_utc`,
 `report_updated_text`, `base_depth_{in,cm}`, `season_total_{in,cm}`,
 `snow_{12h,24h,48h,7d}_{in,cm}`, `overall_conditions`, `summit_readings`,
-`vail_resort_id`.
+`vail_resort_id`, `units_native`, `lifts_{open,total}`,
+`runs_{open,total,groomed}`.
 
 `observed_at` is when we fetched; `report_updated_utc` is when the resort says
 it last refreshed. The gap between them is what staleness is measured on.
+
+`units_native` is `in,cm` where the source published both and `in` or `cm`
+where it published one — so a converted figure is always identifiable as one.
+The lift and run counts are blank unless the source publishes them.
 
 ### `data/forecast_<season>.csv` — the forecast
 
@@ -191,15 +236,22 @@ resort that publishes no timestamp at all.
 ```
 data/      resorts.csv, snow_<season>.csv, forecast_<season>.csv
            last_run.json (local run log, gitignored)
-scripts/   snowd.py (library), fetch.py (CLI), build_site_data.py
+scripts/   snowd.py (library + adapters), fetch.py (CLI), build_site_data.py
+           test_snowd.py (offline self-checks)
 site/      index.html (viewer), data.js (generated)
+tests/     fixtures/ — a captured response per adapter, so the parsers are
+           tested against real markup without touching the network
 ```
 
 ## Known gaps
 
-- **Lifts, runs and acres open** are not captured. They are not embedded in the
-  snow report page the way the snow numbers are, and the lift-status pages are
-  not uniform across resorts — it would need a second per-resort scraper.
+- **Lifts and runs open** are captured only where the source volunteers them
+  (RCR and Telluride). Vail's snow report page does not embed them at all, and
+  its lift-status pages are not uniform across resorts, so for the 35
+  Vail-operated resorts those columns stay blank.
+- **No forecast for the partner resorts.** Vail's page ships a structured
+  5-day forecast; RCR publishes only a two-day temperature outlook and
+  Telluride an unstructured widget, so neither is captured.
 - **No backfill.** History starts the day the first fetch ran; the charts fill
   in from there.
 - **Partner resorts** have no snow source yet (see Coverage).

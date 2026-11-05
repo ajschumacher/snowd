@@ -98,6 +98,13 @@ def main() -> int:
                 "d7_in": _f(row.get("snow_7d_in")), "d7_cm": _f(row.get("snow_7d_cm")),
                 "cond": row.get("overall_conditions") or "",
                 "summit": row.get("summit_readings") == "true",
+                # Which unit the resort published. Where it is only one of the
+                # two, the viewer marks the other as computed rather than
+                # presenting arithmetic as the resort's own figure.
+                "nat": row.get("units_native") or "in,cm",
+                "lifts": _f(row.get("lifts_open")), "liftsN": _f(row.get("lifts_total")),
+                "runs": _f(row.get("runs_open")), "runsN": _f(row.get("runs_total")),
+                "groomed": _f(row.get("runs_groomed")),
             })
         for v in per.values():
             v.sort(key=lambda x: x["t"])

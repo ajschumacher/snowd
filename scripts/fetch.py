@@ -21,7 +21,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from snowd import (  # noqa: E402
+from snowd import (
+    ADAPTERS,  # noqa: E402
     DATA,
     FetchResult,
     append_forecast,
@@ -55,7 +56,9 @@ def main() -> int:
             print(f"unknown resort_id(s): {', '.join(sorted(missing))}", file=sys.stderr)
             return 2
 
-    live = [r for r in resorts if r.data_source == "vail_cms" and r.snow_report_url]
+    # Any resort whose data_source names a registered adapter is fetchable; the
+    # adapter decides what URL that means.
+    live = [r for r in resorts if r.data_source in ADAPTERS]
     skipped = [r for r in resorts if r not in live]
 
     with cf.ThreadPoolExecutor(max_workers=args.workers) as ex:

@@ -37,11 +37,11 @@ paoli-peaks,Paoli Peaks,Vail Resorts,owned,US,Midwest,IN,paolipeaks.com,https://
 perisher,Perisher,Vail Resorts,owned,AU,Australia,NSW,perisher.com.au,,-36.405556,148.413889,Australia/Sydney,
 falls-creek,Falls Creek,Vail Resorts,owned,AU,Australia,VIC,skifalls.com.au,,-36.865,147.275278,Australia/Melbourne,
 mount-hotham,Mount Hotham,Vail Resorts,owned,AU,Australia,VIC,mthotham.com.au,,-36.976111,147.136111,Australia/Melbourne,
-telluride,Telluride,Independent,partner,US,Rockies,CO,tellurideskiresort.com,,37.936389,-107.846944,America/Denver,
-fernie,Fernie Alpine Resort,RCR,partner,CA,West,BC,skifernie.com,,49.4625,-115.086111,America/Edmonton,
-kicking-horse,Kicking Horse,RCR,partner,CA,West,BC,kickinghorseresort.com,,51.297778,-117.047778,America/Edmonton,
-kimberley,Kimberley Alpine Resort,RCR,partner,CA,West,BC,skikimberley.com,,49.665,-116.011111,America/Edmonton,
-nakiska,Nakiska,RCR,partner,CA,West,AB,skinakiska.com,,50.942778,-115.158333,America/Edmonton,
+telluride,Telluride,Independent,partner,US,Rockies,CO,tellurideskiresort.com,https://tellurideskiresort.com/snow-report/,37.936389,-107.846944,America/Denver,telluride
+fernie,Fernie Alpine Resort,RCR,partner,CA,West,BC,skifernie.com,https://skifernie.com/conditions/snow-report/,49.4625,-115.086111,America/Edmonton,rcr_refresh
+kicking-horse,Kicking Horse,RCR,partner,CA,West,BC,kickinghorseresort.com,https://kickinghorseresort.com/conditions/snow-report/,51.297778,-117.047778,America/Edmonton,rcr_refresh
+kimberley,Kimberley Alpine Resort,RCR,partner,CA,West,BC,skikimberley.com,https://skikimberley.com/conditions/snow-report/,49.665,-116.011111,America/Edmonton,rcr_refresh
+nakiska,Nakiska,RCR,partner,CA,West,AB,skinakiska.com,https://skinakiska.com/conditions/snow-report/,50.942778,-115.158333,America/Edmonton,rcr_refresh
 mont-sainte-anne,Mont-Sainte-Anne,RCR,partner,CA,Northeast,QC,mont-sainte-anne.com,,47.075,-70.911111,America/Toronto,
 stoneham,Stoneham,RCR,partner,CA,Northeast,QC,ski-stoneham.com,,47.0,-71.375,America/Toronto,
 hakuba-valley,Hakuba Valley,Partner,partner,JP,Japan,Nagano,hakubavalley.com,,36.698611,137.831944,Asia/Tokyo,

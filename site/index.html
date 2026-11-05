@@ -141,6 +141,7 @@ tbody tr.row.sel td:first-child{box-shadow:inset 3px 0 0 var(--series-1)}
 .big{font-weight:650}
 .dim{color:var(--text-muted)}
 .unit{font-size:11px;color:var(--text-muted);margin-left:1px}
+.unit.conv{border-bottom:1px dotted var(--text-muted);cursor:help}
 .stale{color:var(--warn);background:var(--warn-bg);border-radius:5px;padding:1px 5px;font-size:11px;white-space:nowrap}
 .nodata-pill{color:var(--text-muted);font-size:11.5px}
 
@@ -263,8 +264,10 @@ footer a{color:var(--accent)}
 <footer>
   <div id="foot"></div>
   <div style="margin-top:6px">
-    Snow numbers come straight from each resort's own snow &amp; weather report, in the units
-    they publish — both inches and centimetres are stored, so nothing is converted or rounded here.
+    Snow numbers come straight from each resort's own snow &amp; weather report. Vail-operated
+    resorts publish inches <em>and</em> centimetres, so both are stored verbatim and nothing is
+    converted. Partner resorts publish one unit only; the other is computed, and shown as
+    &ldquo;&asymp;&rdquo;.
   </div>
   <div style="margin-top:6px">
     Source, and the full season history as CSV, on
@@ -344,9 +347,27 @@ function fmt(v){
   if(v === null || v === undefined) return "–";
   return (Math.abs(v - Math.round(v)) < 0.05) ? String(Math.round(v)) : v.toFixed(1);
 }
-function num(v){
+/** Is the figure we are about to show the resort's own number, or arithmetic?
+ *
+ *  Vail-operated sites publish inches AND centimetres for every metric, so
+ *  neither is ever computed. Every partner source publishes exactly one unit,
+ *  so the other is a conversion — and converting is not the same as
+ *  reporting. Rather than quietly show 3.9in where the resort said 10cm, a
+ *  converted figure is marked "≈" and says so on hover.
+ */
+function isConverted(obs, v){
+  if(v === 0) return false;   // 0cm is exactly 0in — nothing approximate about it
+  return (((obs && obs.nat) || "in,cm").indexOf(S.unit) === -1);
+}
+function convNote(obs){
+  return "This resort publishes " + ((obs && obs.nat) === "cm" ? "centimetres" : "inches") +
+         " only — shown converted. Switch units to see its own figure.";
+}
+function num(v, obs){
   if(v === null || v === undefined) return '<span class="dim">–</span>';
-  return '<span class="big">'+fmt(v)+'</span><span class="unit">'+U[S.unit].suf+'</span>';
+  var c = isConverted(obs, v), t = c ? ' title="'+esc(convNote(obs))+'"' : '';
+  return '<span class="big"'+t+'>'+(c?"≈":"")+fmt(v)+'</span>'+
+         '<span class="unit'+(c?" conv":"")+'"'+t+'>'+U[S.unit].suf+'</span>';
 }
 /** Parse a forecast snowfall cell into [lo, hi].
  *
@@ -619,10 +640,10 @@ function render(){
           'aria-label="'+(isFav?"Remove ":"Add ")+esc(r.name)+(isFav?" from":" to")+' favourites">'+(isFav?"★":"☆")+'</button></td>'+
         '<td class="l"><div class="rname">'+esc(r.name)+'</div><div class="rmeta">'+esc(place(r))+
           (r.tier==="partner"?' · partner':'')+'</div></td>'+
-        '<td>'+(has?num(val(obs,"base")):'<span class="dim">–</span>')+'</td>'+
-        '<td>'+(has?num(val(obs,"tot")):'<span class="dim">–</span>')+'</td>'+
-        '<td>'+(has?num(val(obs,"h24")):'<span class="dim">–</span>')+'</td>'+
-        '<td>'+(has?num(val(obs,"d7")):'<span class="dim">–</span>')+'</td>'+
+        '<td>'+(has?num(val(obs,"base"), obs):'<span class="dim">–</span>')+'</td>'+
+        '<td>'+(has?num(val(obs,"tot"), obs):'<span class="dim">–</span>')+'</td>'+
+        '<td>'+(has?num(val(obs,"h24"), obs):'<span class="dim">–</span>')+'</td>'+
+        '<td>'+(has?num(val(obs,"d7"), obs):'<span class="dim">–</span>')+'</td>'+
         '<td class="l">'+(has&&obs.cond?esc(obs.cond):'<span class="dim">–</span>')+'</td>'+
         '<td>'+upCell+'</td>'+
       '</tr>';
@@ -654,9 +675,24 @@ function detailHTML(r){
   var sg = stats.map(function(p){
     var v = has ? val(obs, p[1]) : null;
     return '<div class="stat"><div class="k">'+p[0]+'</div><div class="v">'+
-      (v===null?'<span class="dim" style="font-size:16px">–</span>':fmt(v)+'<span class="unit">'+U[S.unit].suf+'</span>')+
+      (v===null
+        ? '<span class="dim" style="font-size:16px">–</span>'
+        : (isConverted(obs, v)?"≈":"")+fmt(v)+'<span class="unit'+(isConverted(obs, v)?" conv":"")+'">'+U[S.unit].suf+'</span>')+
       '</div></div>';
   }).join("");
+
+  // Only some sources publish these. Vail's snow report page does not embed
+  // them at all, so for most resorts this line is simply absent.
+  var openBits = [];
+  if(has && obs){
+    if(obs.lifts !== null && obs.lifts !== undefined)
+      openBits.push("<strong>"+obs.lifts+(obs.liftsN?"/"+obs.liftsN:"")+"</strong> lifts open");
+    if(obs.runs !== null && obs.runs !== undefined)
+      openBits.push("<strong>"+obs.runs+(obs.runsN?"/"+obs.runsN:"")+"</strong> runs open");
+    if(obs.groomed !== null && obs.groomed !== undefined)
+      openBits.push("<strong>"+obs.groomed+"</strong> groomed");
+  }
+  var openHTML = openBits.length ? '<div class="cnote">'+openBits.join(" · ")+'</div>' : "";
 
   var fcs = forecast(r.id);
   var fcHTML = "";
@@ -692,13 +728,16 @@ function detailHTML(r){
   // already carries its age, flagged amber once it is more than a few days
   // old. What is worth explaining is the absence of data entirely.
   var absence = "";
+  if(has && isConverted(obs, null)){
+    absence = '<div class="cnote">'+esc(convNote(obs))+'</div>';
+  }
   if(!has){
     absence = '<div class="cnote">'+(r.src === "vail_cms"
       ? "This resort has not published a snow report yet this season."
       : "No machine-readable snow source for this resort yet — only its location is tracked.")+'</div>';
   }
 
-  return '<div class="detail-in">'+absence+'<div class="dgrid">'+sg+'</div>'+
+  return '<div class="detail-in">'+absence+'<div class="dgrid">'+sg+'</div>'+openHTML+
     '<div class="charts">'+
       chartCard("base", r, "Base depth", note)+
       chartCard("tot", r, "Cumulative snowfall", note)+
@@ -741,6 +780,7 @@ function drawChart(svg, id, metric){
 
   var xs = pts.map(function(p){ return p.x; }), ys = pts.map(function(p){ return p.y; });
   var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs);
+  var d0 = x0, d1 = x1;   // what the data actually spans, for the axis labels
   if(x1 === x0){ x0 -= 43200000; x1 += 43200000; }
   var yMax = Math.max.apply(null, ys), y1 = yMax <= 0 ? 1 : yMax * 1.18;
   var sx = function(v){ return P.l + (v - x0) / (x1 - x0) * (W - P.l - P.r); };
@@ -771,8 +811,8 @@ function drawChart(svg, id, metric){
 
   var xl = "";
   var fmtD = function(t){ return new Date(t).toLocaleDateString(undefined,{month:"short",day:"numeric"}); };
-  xl += '<text class="axis" x="'+P.l+'" y="'+(H-6)+'" text-anchor="start">'+fmtD(x0)+'</text>';
-  if(pts.length > 1) xl += '<text class="axis" x="'+(W-P.r)+'" y="'+(H-6)+'" text-anchor="end">'+fmtD(x1)+'</text>';
+  xl += '<text class="axis" x="'+P.l+'" y="'+(H-6)+'" text-anchor="start">'+fmtD(d0)+'</text>';
+  if(pts.length > 1) xl += '<text class="axis" x="'+(W-P.r)+'" y="'+(H-6)+'" text-anchor="end">'+fmtD(d1)+'</text>';
 
   svg.innerHTML = g +
     '<path class="ar" d="'+area+'"/><path class="ln" d="'+line+'"/>'+ dots + endLab + xl +
