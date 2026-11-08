@@ -87,3 +87,4 @@ observed_at,season,resort_id,report_updated_utc,report_updated_text,base_depth_i
 2026-11-08T17:59:13Z,2026-27,park-city,2026-11-04T23:08:00Z,"Updated November 04, 2026 at 4:08 PM MST",0.0,0.0,5.0,12.0,0.0,0.0,0.0,0.0,0.0,0.0,4.0,10.0,Early Season,false,53,"in,cm",,,,,,
 2026-11-08T17:59:13Z,2026-27,soelden,,,19.3,49.0,,,,,,,,,,,,true,,cm,,15,31,,,
 2026-11-08T17:59:13Z,2026-27,vail,2026-11-08T12:40:00Z,"Updated November 08, 2026 at 5:40 AM MST",4.0,10.0,10.0,25.0,0.0,0.0,0.0,0.0,0.0,0.0,6.0,15.0,Early Season,false,1,"in,cm",,,,,,
+2026-11-08T22:18:34Z,2026-27,northstar,2026-11-01T18:20:00Z,"Updated November 01, 2026 at 10:20 AM PST",0.0,0.0,8.0,20.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,,true,51,"in,cm",,,,,,
