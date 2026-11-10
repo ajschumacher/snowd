@@ -148,7 +148,8 @@ tbody tr.row.sel td:first-child{box-shadow:inset 3px 0 0 var(--series-1)}
 .dim{color:var(--text-muted)}
 .unit{font-size:11px;color:var(--text-muted);margin-left:1px}
 .unit.conv{border-bottom:1px dotted var(--text-muted);cursor:help}
-/* a fetch time standing in for an update time the resort never published */
+/* a fetch time standing in for an update time the resort never published,
+   or a date standing in for a time */
 .polled{border-bottom:1px dotted currentColor;cursor:help;opacity:.85}
 .stale{color:var(--warn);background:var(--warn-bg);border-radius:5px;padding:1px 5px;font-size:11px;white-space:nowrap}
 .nodata-pill{color:var(--text-muted);font-size:11.5px}
@@ -228,6 +229,7 @@ footer a{color:var(--accent)}
         <option value="tot">Season total</option>
         <option value="h24">24-hour snowfall</option>
         <option value="d7">7-day snowfall</option>
+        <option value="lifts">Lifts open</option>
       </select>
       <span class="note">Tap a marker to pull that resort to the top</span>
     </div>
@@ -266,6 +268,7 @@ footer a{color:var(--accent)}
         <th data-k="tot">Season <span class="ar">▾</span></th>
         <th data-k="h24">24 h <span class="ar">▾</span></th>
         <th data-k="d7">7 d <span class="ar">▾</span></th>
+        <th data-k="lifts">Open <span class="ar">▾</span></th>
         <th class="l" data-k="cond">Conditions <span class="ar">▾</span></th>
         <th data-k="up">Updated <span class="ar">▾</span></th>
       </tr></thead>
@@ -432,6 +435,31 @@ function snowBreakdown(day, night, suf){
   return parts.join(", ");
 }
 
+/** How much of the mountain is running, where the resort says.
+ *
+ *  Not every source does: Vail's snow report page carries no lift or run
+ *  counts at all, so for Vail's own resorts this is simply unknown — which is
+ *  a dash, not a zero.
+ */
+function lifts(obs){ return (obs && obs.lifts !== null && obs.lifts !== undefined) ? obs.lifts : null; }
+function runs(obs){ return (obs && obs.runs !== null && obs.runs !== undefined) ? obs.runs : null; }
+function outOf(n, total){ return fmt(n) + (total ? "/" + fmt(total) : ""); }
+/** "7/23 lifts", "1 lift": singular only for a bare count of one. */
+function counted(n, total, word){ return outOf(n, total) + " " + word + (n === 1 && !total ? "" : "s"); }
+function openCell(obs){
+  var l = lifts(obs), r = runs(obs);
+  if(l === null && r === null)
+    return '<span class="dim" title="This resort\'s report doesn\'t say how many lifts or runs are open.">–</span>';
+  var n = l !== null ? l : r, total = l !== null ? obs.liftsN : obs.runsN;
+  var rest = counted(n, total, l !== null ? "lift" : "run").slice(fmt(n).length);
+  var top = '<span class="big">'+fmt(n)+'</span><span class="unit">'+rest+'</span>';
+  var under = (l !== null && r !== null) ? '<div class="rmeta">'+counted(r, obs.runsN, "run")+'</div>' : "";
+  // The stored count is the day's high-water mark, not a live reading: a feed
+  // that drops to zero when the lifts stop for the night would otherwise make
+  // every mountain look shut by evening.
+  return '<div title="The most we saw open at any check on the day of this report.">'+top+under+'</div>';
+}
+
 function daysAgo(iso){
   if(!iso) return null;
   var t = Date.parse(iso); if(isNaN(t)) return null;
@@ -448,6 +476,21 @@ function ago(iso){
   if(d < 30) return Math.round(d) + "d ago";
   var m = Math.round(d/30.44);
   return m + (m === 1 ? " month ago" : " months ago");
+}
+/** Age of a report the resort dated but did not time.
+ *
+ *  Kitzsteinhorn heads its table with a day and nothing else. Stored, that is
+ *  midnight where the resort is, and counting hours from midnight says "18h
+ *  ago" about a report that may have gone up this afternoon. All that is
+ *  actually known is the day, so that is all this says.
+ */
+function agoDay(iso, tz){
+  var then = localDate(tz, new Date(iso)), today = localDate(tz);
+  var n = Math.round((Date.parse(today) - Date.parse(then)) / 86400000);
+  if(isNaN(n)) return ago(iso);
+  if(n <= 0) return "today";
+  if(n === 1) return "yesterday";
+  return n < 30 ? n + "d ago" : ago(iso);
 }
 /** A time as the clock said it, in the reader's own timezone: "10:04 AM",
  *  or "Mon 10:04 PM" once it is no longer today.
@@ -472,12 +515,13 @@ function fullTime(iso){
   return t.toLocaleString(undefined, {weekday:"short", year:"numeric", month:"short",
     day:"numeric", hour:"numeric", minute:"2-digit", timeZoneName:"short"});
 }
-/** Today's date where the resort is, as YYYY-MM-DD. */
-function localDate(tz){
+/** The date where the resort is, as YYYY-MM-DD — today's unless told otherwise. */
+function localDate(tz, when){
+  when = when || new Date();
   try {
     return new Intl.DateTimeFormat("en-CA", {timeZone: tz, year:"numeric", month:"2-digit", day:"2-digit"})
-      .format(new Date());
-  } catch(e){ return new Date().toISOString().slice(0, 10); }
+      .format(when);
+  } catch(e){ return when.toISOString().slice(0, 10); }
 }
 function esc(s){
   return String(s===null||s===undefined?"":s).replace(/[&<>"']/g, function(c){
@@ -503,15 +547,30 @@ var BINS = [
   {max:72,  v:"--m4", lab:"48"},
   {max:1e9, v:"--m5", lab:"72+"}
 ];
+/* Lifts are a count, not a depth, so they get their own steps on the same
+   ramp: a resort spinning six lifts should not look like six inches of snow. */
+var LIFT_BINS = [
+  {max:1,   v:"--m0", lab:"0"},
+  {max:3,   v:"--m1", lab:"1"},
+  {max:6,   v:"--m2", lab:"3"},
+  {max:12,  v:"--m3", lab:"6"},
+  {max:20,  v:"--m4", lab:"12"},
+  {max:1e9, v:"--m5", lab:"20+"}
+];
+function isCount(){ return S.metric === "lifts"; }
+function bins(){ return isCount() ? LIFT_BINS : BINS; }
+/** The map's value for a resort: inches of snow, or a number of lifts. */
+function mapVal(obs){ return isCount() ? lifts(obs) : inches(obs, S.metric); }
 function cssv(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
-function binColor(inchVal){
-  if(inchVal === null) return cssv("--m-nodata");
-  for(var i=0;i<BINS.length;i++) if(inchVal < BINS[i].max) return cssv(BINS[i].v);
+function binColor(v){
+  if(v === null) return cssv("--m-nodata");
+  var b = bins();
+  for(var i=0;i<b.length;i++) if(v < b[i].max) return cssv(b[i].v);
   return cssv("--m5");
 }
-function radius(inchVal){
-  if(inchVal === null) return 5;
-  return 5 + Math.sqrt(Math.max(0, inchVal)) * 1.45;
+function radius(v){
+  if(v === null) return 5;
+  return 5 + Math.sqrt(Math.max(0, v)) * (isCount() ? 2.6 : 1.45);
 }
 
 /* Colour already carries depth, so the pass has to be carried by something
@@ -547,9 +606,11 @@ function markerSVG(kind, px, fill, ring, hollow){
 function drawLegend(){
   var el = document.getElementById("legend");
   var mName = document.getElementById("metric").selectedOptions[0].textContent;
-  var ramp = BINS.map(function(b){ return '<i style="background:'+cssv(b.v)+'"></i>'; }).join("");
-  var labs = BINS.map(function(b){
-    var n = b.lab === "72+" ? b.lab : b.lab;
+  var count = isCount();
+  var ramp = bins().map(function(b){ return '<i style="background:'+cssv(b.v)+'"></i>'; }).join("");
+  var labs = bins().map(function(b){
+    var n = b.lab;
+    if(count) return "<span>"+n+"</span>";      // a number of lifts has no unit
     if(S.unit === "cm" && b.lab !== "0" && b.lab !== "72+") n = Math.round(parseFloat(b.lab)*2.54);
     else if(S.unit === "cm" && b.lab === "72+") n = "183+";
     return "<span>"+n+"</span>";
@@ -566,7 +627,8 @@ function drawLegend(){
       }).join("") + '</span>';
   }
   el.innerHTML =
-    '<strong style="font-weight:650;color:var(--text-secondary)">'+esc(mName)+' ('+U[S.unit].suf+')</strong>'+
+    '<strong style="font-weight:650;color:var(--text-secondary)">'+esc(mName)+
+      (count ? '' : ' ('+U[S.unit].suf+')')+'</strong>'+
     '<span class="rampwrap"><span class="ramp">'+ramp+'</span><span class="lab">'+labs+'</span></span>'+
     '<span class="nd"><i></i> no report yet</span>'+ shapes;
 }
@@ -641,7 +703,7 @@ function drawMarkers(fit){
   var pts = [];
   D.resorts.forEach(function(r){
     var obs = latest(r.id);
-    var iv  = inches(obs, S.metric);
+    var iv  = mapVal(obs);
     var has = reporting(r.id);
     var px   = Math.round(radius(has ? iv : null) * 2);
     var ring = has ? cssv("--m-ring") : cssv("--m-nodata");
@@ -657,11 +719,14 @@ function drawMarkers(fit){
     // A resort can be reporting and still not publish *this* metric —
     // Kitzsteinhorn gives a base depth and nothing else, Rusutsu a season
     // total and nothing else. Saying "– cm" would read as a measured nothing.
-    var shown = has ? val(obs, S.metric) : null;
+    // The same goes for lifts, which Vail's own resorts don't report at all.
+    var shown = !has ? null : (isCount() ? lifts(obs) : val(obs, S.metric));
     m.bindTooltip(
       '<span class="mk-tip">'+esc(r.name)+
       (shown === null || shown === undefined
-        ? '' : ' — '+(isConverted(obs, shown)?"≈":"")+fmt(shown)+U[S.unit].suf)+
+        ? '' : ' — '+(isCount()
+            ? counted(shown, obs.liftsN, "lift")
+            : (isConverted(obs, shown)?"≈":"")+fmt(shown)+U[S.unit].suf))+
       '<small>'+esc(place(r))+' · '+esc(passLabel(r))+
         (!has ? ' · no report yet'
               : (shown === null || shown === undefined ? ' · not reported' : ''))+
@@ -708,6 +773,7 @@ function sortVal(r, k){
   // the same time the column shows, so resorts with no posted update time
   // sort by the age they display rather than sinking to the bottom
   if(k === "up")   { var t = obs ? Date.parse(readingTime(obs)) : NaN; return isNaN(t) ? null : t; }
+  if(k === "lifts") return lifts(obs);
   return inches(obs, k);
 }
 
@@ -739,12 +805,20 @@ function render(){
     // we fetched would read "just now" under a column headed Updated, which
     // claims a freshness the resort never stated — so say which one it is.
     var polled = !!(obs && !obs.up);
+    // ...and one publishes the day but not the hour.
+    var dayOnly = !!(obs && obs.up && obs.upDay);
     var upTitle = !obs ? "" : esc(polled
       ? "No update time posted — we first read these numbers " + fullTime(obs.t) + "."
-      : "Report published " + fullTime(obs.up) + ".");
+      : dayOnly
+        ? "Report dated " + new Date(obs.up).toLocaleDateString(undefined,
+            {weekday:"short", month:"short", day:"numeric", timeZone:r.tz}) +
+          ". This resort posts the date but not the time."
+        : "Report published " + fullTime(obs.up) + ".");
     var upCell = !has ? '<span class="nodata-pill">not yet</span>'
-      : '<span class="'+(age !== null && age > 3 ? "stale" : "dim")+(polled ? " polled" : "")+'"'+
-        ' title="'+upTitle+'" data-ago="'+esc(readingTime(obs))+'">'+ago(readingTime(obs))+'</span>';
+      : '<span class="'+(age !== null && age > 3 ? "stale" : "dim")+(polled || dayOnly ? " polled" : "")+'"'+
+        ' title="'+upTitle+'" data-ago="'+esc(readingTime(obs))+'"'+
+        (dayOnly ? ' data-day="'+esc(r.tz)+'"' : '')+'>'+
+        (dayOnly ? agoDay(obs.up, r.tz) : ago(readingTime(obs)))+'</span>';
     html +=
       '<tr class="row'+(r.id===S.open?" sel":"")+'" data-id="'+r.id+'" tabindex="0" aria-expanded="'+(S.open===r.id)+'">'+
         '<td class="l"><button class="star" aria-pressed="'+isFav+'" data-fav="'+r.id+'" '+
@@ -756,12 +830,13 @@ function render(){
         '<td>'+(has?num(val(obs,"tot"), obs):'<span class="dim">–</span>')+'</td>'+
         '<td>'+(has?num(val(obs,"h24"), obs):'<span class="dim">–</span>')+'</td>'+
         '<td>'+(has?num(val(obs,"d7"), obs):'<span class="dim">–</span>')+'</td>'+
+        '<td>'+(has?openCell(obs):'<span class="dim">–</span>')+'</td>'+
         '<td class="l">'+(has&&obs.cond?esc(obs.cond):'<span class="dim">–</span>')+'</td>'+
         '<td>'+upCell+'</td>'+
       '</tr>';
-    if(S.open === r.id) html += '<tr class="detail"><td colspan="8">'+detailHTML(r)+'</td></tr>';
+    if(S.open === r.id) html += '<tr class="detail"><td colspan="9">'+detailHTML(r)+'</td></tr>';
   });
-  tb.innerHTML = html || '<tr><td colspan="8" style="padding:26px;text-align:center" class="dim">No resorts match.</td></tr>';
+  tb.innerHTML = html || '<tr><td colspan="9" style="padding:26px;text-align:center" class="dim">No resorts match.</td></tr>';
 
   document.getElementById("count").textContent =
     rows.length + " of " + D.resorts.length + " resorts" +
@@ -1176,7 +1251,8 @@ function setSub(){
   function tick(){
     setSub();
     document.querySelectorAll("#tbody [data-ago]").forEach(function(el){
-      el.textContent = ago(el.getAttribute("data-ago"));
+      var iso = el.getAttribute("data-ago"), tz = el.getAttribute("data-day");
+      el.textContent = tz ? agoDay(iso, tz) : ago(iso);
     });
   }
   setInterval(tick, 30000);
@@ -1200,6 +1276,8 @@ window.__snowdRefresh = function(){
   render();
   setSub();
 };
+/** A check ran and found nothing new: only the "last checked" line moves. */
+window.__snowdStatus = setSub;
 };
 </script>
 
@@ -1245,7 +1323,8 @@ window.__snowdRefresh = function(){
    * those itself), and the data underneath is whatever was current when it
    * loaded. So while the tab is visible, ask every few minutes whether a
    * fetch has run since — status.js is a couple of hundred bytes — and only
-   * if one has, pull data.js again and redraw in place.
+   * if one has, and it changed the data, pull data.js again and redraw in
+   * place.
    *
    * Not on file://, where there is no deploy to have changed.
    */
@@ -1256,8 +1335,17 @@ window.__snowdRefresh = function(){
     lastPoll = Date.now(); busy = true;
     var before = (window.SNOWD_STATUS || {}).checked_at || "";
     load("status.js", function(ok){
-      var after = (window.SNOWD_STATUS || {}).checked_at || "";
-      if(!ok || after === before){ busy = false; return; }
+      var st = window.SNOWD_STATUS || {};
+      if(!ok || (st.checked_at || "") === before){ busy = false; return; }
+      // A check happened. Most find nothing new, and status.js says so by
+      // carrying the fingerprint of the data it shipped with: if that is the
+      // one already on the page, the header is all that needs redrawing.
+      var have = (window.SNOWD_DATA || {}).rev;
+      if(st.data_rev && have && st.data_rev === have){
+        busy = false;
+        if(window.__snowdStatus) window.__snowdStatus();
+        return;
+      }
       load("data.js", function(ok2){
         busy = false;
         if(ok2 && window.__snowdRefresh) window.__snowdRefresh();

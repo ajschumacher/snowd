@@ -13,10 +13,10 @@ needs no code change here.
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 import re
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -82,7 +82,23 @@ def latest_forecast(rows: list[dict]) -> list[dict]:
     return list(best.values())
 
 
-def main() -> int:
+_HAS_CLOCK = re.compile(r"\d{1,2}:\d{2}")
+
+
+def _date_only(row: dict) -> bool:
+    """Did the resort publish a date with no time of day?
+
+    Kitzsteinhorn heads its table "Nov 10" and nothing more. The stored stamp
+    is then midnight where the resort is, and an age counted from midnight
+    reads "18h ago" for a report that may have gone up an hour back. The
+    viewer needs to know, so it can say "today" and claim no more than that.
+    """
+    text = row.get("report_updated_text") or ""
+    return bool(row.get("report_updated_utc")) and bool(text) and not _HAS_CLOCK.search(text)
+
+
+def build() -> str:
+    """Write site/data.js; return its fingerprint."""
     resorts = load_resorts()
     out = {
         # Deliberately NOT wall-clock time. This file is committed by CI every
@@ -133,6 +149,8 @@ def main() -> int:
                 "runs": _f(row.get("runs_open")), "runsN": _f(row.get("runs_total")),
                 "groomed": _f(row.get("runs_groomed")),
             })
+            if _date_only(row):
+                per[row["resort_id"]][-1]["upDay"] = True
         for v in per.values():
             v.sort(key=lambda x: x["t"])
         out["snow"][season] = per
@@ -163,6 +181,12 @@ def main() -> int:
     ]
     out["data_as_of"] = max(stamps) if stamps else ""
 
+    # A fingerprint of everything above. `data_as_of` can't stand in for it:
+    # a lift count brought up to date changes the data without adding a row.
+    # Like the rest of the file it depends only on the CSVs.
+    body = json.dumps(out, separators=(",", ":"), allow_nan=False)
+    out["rev"] = hashlib.sha256(body.encode("utf-8")).hexdigest()[:12]
+
     SITE.mkdir(parents=True, exist_ok=True)
     target = SITE / "data.js"
     payload = json.dumps(out, separators=(",", ":"), allow_nan=False)
@@ -174,6 +198,11 @@ def main() -> int:
     n_obs = sum(len(v) for v in out["snow"].get(out["seasons"][0], {}).values()) if out["seasons"] else 0
     print(f"site/data.js  {target.stat().st_size / 1024:.1f} KB  "
           f"{len(out['resorts'])} resorts, {len(out['seasons'])} season(s), {n_obs} observations")
+    return out["rev"]
+
+
+def main() -> int:
+    build()
     return 0
 
 

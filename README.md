@@ -283,7 +283,9 @@ fetch writes on every run and which is deliberately **not committed**: it
 changes every run, and a run that finds nothing new is supposed to commit
 nothing. The workflow packages the site from the fetch job's own working tree,
 so the file ships with each deploy anyway. A tab left open re-reads it every
-few minutes and pulls fresh data when a new check has landed.
+few minutes. Most checks find nothing new, so the file also carries a
+fingerprint of the data it shipped with (`data_rev`, matching `rev` in
+`data.js`), and the tab only downloads the data again when that has changed.
 
 The fetch and the Pages deploy sit in the **same** workflow run on purpose. A
 commit pushed with `GITHUB_TOKEN` doesn't trigger other workflows, so a
@@ -333,12 +335,18 @@ For those, de-duplication falls back to the values plus the fetch date, so you
 get a row a day unless the numbers move, and the viewer marks the age it's
 showing as the time we first read those numbers — "just now" under a column
 headed *Updated* would be claiming a freshness the resort never actually said.
+Kitzsteinhorn is halfway there: it publishes the day but not the hour. Stored,
+that is midnight in Austria, and counting from midnight says "18h ago" about a
+report that may be an hour old, so the viewer says "today" and no more.
 
 `units_native` is `in,cm` where the source gave us both, or `in` / `cm` where
 it gave one, so a converted figure can always be told apart from a reported
 one. `reading_level` is `mid`, `base` or `summit` for sources that measure at
 several elevations, and blank for the rest. Lift and run counts are blank
-unless the source publishes them.
+unless the source publishes them, which Vail's own resorts don't. Where they
+are published, `lifts_open`, `runs_open` and `runs_groomed` hold the most seen
+open at any fetch on that row's day (see Duplicate handling), and the viewer
+shows them in the *Open* column and as a map metric.
 
 ### `data/forecast_<season>.csv` — the forecast
 
@@ -366,11 +374,36 @@ The day comes from the resort's own publish date where there is one, which is
 what keeps a report left up all summer to a single row rather than one per day
 of polling. Where there's no timestamp, the fetch date stands in.
 
+"Same row" doesn't mean frozen. Lifts, runs and conditions move during the day
+without the snow moving, and they used to be stuck at the day's first sighting
+— usually a fetch before dawn, so a resort that started its lifts at nine
+showed none turning until tomorrow. Now a fetch that matches the resort's
+latest row brings those fields up to date in place, and takes the publish
+stamp of the report they came from. Two rules keep that from flapping: a blank
+never erases a recorded value, and the open counts only go up within a row. A
+feed reporting live status drops to zero when the lifts stop for the evening,
+and "0 lifts" all night about a mountain that ran twelve isn't what anyone
+means by what's open.
+
+Each fetch is weighed against that resort's *latest* row, not every row. So a
+depth that goes 30 → 31 → 30 in one day is three rows, and the latest is the
+current reading; matched against everything, the third was dropped as a
+duplicate of the first and the superseded 31 stood as the latest. The one
+exception is a report dated before the latest row's day turning up again — a
+cache serving yesterday's page — which is not news.
+
 Forecast rows are keyed on resort + target date + fetch date. A re-fetch on the
 same day replaces that day's row only if the forecast actually moved, compared
 on the forecast's own fields and ignoring `observed_at`. Without that, every
 run would rewrite all ~180 rows with nothing but a new fetch timestamp, and the
 scheduled job would commit that noise several times a day.
+
+"Moved" has a threshold as well. These forecasts are regenerated more or less
+continuously — a wind speed goes from 4.78 to 4.68, a high from 58 to 57. In
+one three-hour stretch 171 of about 210 rows differed, 149 of them in nothing
+but temperature, sky or wind, which at an hourly check is a commit an hour of
+weather-model jitter. So a change in forecast *snow* is taken at once, and
+anything else waits until the stored row is six hours old.
 
 Same reasoning for `site/data.js` carrying `data_as_of` — the freshest
 observation in the data, rather than a "generated now" stamp. It's a pure

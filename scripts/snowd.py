@@ -1171,22 +1171,111 @@ def _snow_identity(row: dict) -> tuple:
     return (row["resort_id"], day, vals)
 
 
-def append_snow(rows: list[dict], season: str) -> tuple[int, int]:
-    path = DATA / f"snow_{season}.csv"
-    existing = _read_csv(path)
-    seen = {_snow_identity(r) for r in existing}
-    added = []
+#: What a report says besides how deep the snow is. These move during the day
+#: without the snow moving: a first lift opens after the morning report, the
+#: trail count climbs, "machine groomed" becomes "powder".
+STATUS_COLUMNS = [
+    "overall_conditions",
+    "lifts_open", "lifts_total", "runs_open", "runs_total", "runs_groomed",
+]
+
+#: Of those, the counts of what is running. Within one row they only ever go
+#: up: the row keeps the most that was open, not whatever the last fetch saw.
+#: A feed reporting live status drops to zero when the lifts stop for the
+#: evening, and a table saying "0 lifts" all night about a mountain that ran
+#: twelve of them that day is answering a question nobody asked.
+PEAK_COLUMNS = {"lifts_open", "runs_open", "runs_groomed"}
+
+
+def _as_number(text: str) -> float | None:
+    try:
+        return float(text)
+    except ValueError:
+        return None
+
+
+def _cell(row: dict, col: str) -> str:
+    v = row.get(col)
+    return "" if v is None else str(v)
+
+
+def _identity_day(row: dict) -> str:
+    return _snow_identity(row)[1]
+
+
+def merge_snow(existing: list[dict], rows: list[dict]) -> tuple[list[dict], int, int]:
+    """Fold freshly fetched rows into a season's rows: (merged, added, updated).
+
+    Each new row is weighed against that resort's *latest* row, not against
+    everything ever seen:
+
+    - Same observation (see `_snow_identity`) as the latest row: no new row,
+      but the lifts, trails and conditions on the stored one are brought up to
+      date. They used to be frozen at the day's first sighting — usually a
+      fetch before dawn, before anything had opened — so a resort that started
+      its lifts at nine showed none turning until the next day. The open
+      counts keep their high-water mark (see `PEAK_COLUMNS`).
+    - Different from the latest row: a new row. That includes a reading going
+      back to a value it had earlier the same day. Matching against every past
+      row dropped that third reading as a duplicate of the first, and left the
+      superseded middle one standing as the latest.
+    - Dated before the latest row's day and already recorded: a stale page
+      resurfacing (a cache serving yesterday's report), which is not news.
+
+    A status left blank never erases one already recorded, so a source that
+    omits a figure now and then does not make the row flap. The publish stamp
+    moves only together with a status change: on its own it is not worth a
+    rewrite, or Telluride, which stamps every page load, would mean a commit
+    on every run.
+    """
+    merged = [dict(r) for r in existing]
+    seen = {_snow_identity(r) for r in merged}
+    latest: dict[str, dict] = {}
+    for r in merged:
+        cur = latest.get(r["resort_id"])
+        if cur is None or (r.get("observed_at") or "") >= (cur.get("observed_at") or ""):
+            latest[r["resort_id"]] = r
+
+    added = updated = 0
     for r in rows:
         ident = _snow_identity(r)
-        if ident in seen:
+        prior = latest.get(r["resort_id"])
+        if prior is not None and _snow_identity(prior) == ident:
+            changed = False
+            for c in STATUS_COLUMNS:
+                new, old = _cell(r, c), _cell(prior, c)
+                if new == "" or new == old:
+                    continue
+                if c in PEAK_COLUMNS:
+                    a, b = _as_number(new), _as_number(old)
+                    if a is not None and b is not None and a <= b:
+                        continue
+                prior[c] = new
+                changed = True
+            if changed:
+                if _cell(r, "report_updated_utc"):
+                    prior["report_updated_utc"] = r["report_updated_utc"]
+                    prior["report_updated_text"] = _cell(r, "report_updated_text")
+                updated += 1
             continue
+        if prior is not None and ident in seen and ident[1] < _identity_day(prior):
+            continue
+        row = dict(r)
         seen.add(ident)
-        added.append(r)
-    if added:
-        merged = existing + added
+        merged.append(row)
+        latest[r["resort_id"]] = row
+        added += 1
+    return merged, added, updated
+
+
+def append_snow(rows: list[dict], season: str) -> tuple[int, int, int]:
+    """Write a run's snow rows to the season file: (added, updated, total)."""
+    path = DATA / f"snow_{season}.csv"
+    merged, added, updated = merge_snow(_read_csv(path), rows)
+    if added or updated:
         merged.sort(key=lambda r: (r.get("observed_at", ""), r.get("resort_id", "")))
         _write_csv(path, SNOW_COLUMNS, merged)
-    return len(added), len(existing) + len(added)
+    return added, updated, len(merged)
 
 
 def _fc_payload(row: dict) -> tuple:
@@ -1194,16 +1283,40 @@ def _fc_payload(row: dict) -> tuple:
     return tuple(str(row.get(c, "")) for c in FORECAST_COLUMNS if c != "observed_at")
 
 
-def append_forecast(rows: list[dict], season: str) -> tuple[int, int]:
-    """One forecast row per resort / target date / fetch day; latest wins.
+#: How long a stored forecast row stands before a re-fetch may replace it for
+#: anything less than a change in the snow it predicts.
+FORECAST_SETTLE_HOURS = 6
+
+
+def _fc_snow(row: dict) -> tuple:
+    return tuple(str(row.get(c, "")) for c in FORECAST_COLUMNS if c.startswith("snow_"))
+
+
+def _hours_between(earlier: str, later: str) -> float:
+    try:
+        a = datetime.strptime(earlier, "%Y-%m-%dT%H:%M:%SZ")
+        b = datetime.strptime(later, "%Y-%m-%dT%H:%M:%SZ")
+    except (TypeError, ValueError):
+        return float("inf")      # unreadable stamp: don't hold the update back
+    return (b - a).total_seconds() / 3600
+
+
+def merge_forecast(existing: list[dict], rows: list[dict]) -> tuple[list[dict], int, int]:
+    """One forecast row per resort / target date / fetch day: (merged, added, replaced).
 
     A re-fetch on the same day replaces that day's row only when the forecast
     itself has moved. Were it replaced unconditionally, every run would rewrite
     the file with nothing but a new `observed_at` — which, under a CI job that
     commits what changed, means a commit every few hours saying nothing.
+
+    "Moved" needs a threshold, too. These forecasts are regenerated more or
+    less continuously: a wind speed goes from 4.78 to 4.68, a high from 58 to
+    57. In one three-hour stretch 171 of about 210 rows differed, 149 of them
+    in nothing but temperature, sky or wind — and at an hourly check that is a
+    commit an hour of weather-model jitter. So a change in forecast *snow* is
+    taken at once, being the reason anyone looks; anything else waits until
+    the stored row is `FORECAST_SETTLE_HOURS` old.
     """
-    path = DATA / f"forecast_{season}.csv"
-    existing = _read_csv(path)
     index: dict[tuple, dict] = {}
     order: list[tuple] = []
     for r in existing:
@@ -1212,21 +1325,29 @@ def append_forecast(rows: list[dict], season: str) -> tuple[int, int]:
             order.append(key)
         index[key] = r
 
-    before = len(existing)
-    changed = False
+    added = replaced = 0
     for r in rows:
         key = (r["resort_id"], r["forecast_date"], (r.get("observed_at") or "")[:10])
         prior = index.get(key)
-        if prior is not None and _fc_payload(prior) == _fc_payload(r):
-            continue  # same forecast, already recorded — keep the first sighting
-        if prior is None:
+        if prior is not None:
+            if _fc_payload(prior) == _fc_payload(r):
+                continue  # same forecast, already recorded — keep the first sighting
+            settled = _hours_between(prior.get("observed_at"), r.get("observed_at"))
+            if _fc_snow(prior) == _fc_snow(r) and settled < FORECAST_SETTLE_HOURS:
+                continue  # jitter, and the stored row is recent enough
+            replaced += 1
+        else:
             order.append(key)
+            added += 1
         index[key] = r
-        changed = True
+    return [index[k] for k in order], added, replaced
 
-    if not changed:
-        return 0, before
-    merged = [index[k] for k in order]
-    merged.sort(key=lambda r: (r.get("observed_at", ""), r.get("resort_id", ""), r.get("forecast_date", "")))
-    _write_csv(path, FORECAST_COLUMNS, merged)
-    return len(merged) - before, len(merged)
+
+def append_forecast(rows: list[dict], season: str) -> tuple[int, int, int]:
+    """Write a run's forecast rows to the season file: (added, replaced, total)."""
+    path = DATA / f"forecast_{season}.csv"
+    merged, added, replaced = merge_forecast(_read_csv(path), rows)
+    if added or replaced:
+        merged.sort(key=lambda r: (r.get("observed_at", ""), r.get("resort_id", ""), r.get("forecast_date", "")))
+        _write_csv(path, FORECAST_COLUMNS, merged)
+    return added, replaced, len(merged)

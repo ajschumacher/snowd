@@ -14,7 +14,8 @@ on:
     #
     # Extra runs cost nothing: a report with the same numbers on the same day
     # is the same row, so a run with nothing new writes nothing and commits
-    # nothing. Even if every slot fired, that is one page view an hour per
+    # nothing. (A lift or trail count that moved is something new, and updates
+    # that row.) Even if every slot fired, that is one page view an hour per
     # resort.
     - cron: "23 * * * *"
   workflow_dispatch:
@@ -35,9 +36,9 @@ jobs:
   fetch:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -69,9 +70,9 @@ jobs:
       # never committed (it changes on every run, and a run that finds nothing
       # new is supposed to commit nothing). Packaging here is what gets it
       # onto the site anyway, so the page can say when it last checked.
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v6
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: site
 
@@ -86,4 +87,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
