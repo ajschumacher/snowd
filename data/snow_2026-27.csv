@@ -119,3 +119,5 @@ observed_at,season,resort_id,report_updated_utc,report_updated_text,base_depth_i
 2026-11-10T15:04:28Z,2026-27,soelden,,,21.3,54.0,,,,,,,,,,,,true,,cm,,15,31,,,
 2026-11-10T15:04:28Z,2026-27,vail,2026-11-10T12:30:00Z,"Updated November 10, 2026 at 5:30 AM MST",4.0,10.0,10.0,25.0,0.0,0.0,0.0,0.0,0.0,0.0,2.0,5.0,Early Season,false,1,"in,cm",,,,,,
 2026-11-10T15:04:28Z,2026-27,whistler-blackcomb,2026-11-09T21:08:00Z,"Updated November 09, 2026 at 1:08 PM PST",11.0,30.0,2.0,5.0,0.0,0.0,2.0,5.0,2.0,5.0,2.0,5.0,Early Season,false,80,"in,cm",,,,,,
+2026-11-10T15:26:40Z,2026-27,crested-butte,2026-11-10T15:05:00Z,"Updated November 10, 2026 at 8:05 AM MST",10.0,25.0,19.0,48.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,Early Season,false,15,"in,cm",,,,,,
+2026-11-10T15:26:40Z,2026-27,soelden,,,21.7,55.0,,,,,,,,,,,,true,,cm,,15,31,,,
