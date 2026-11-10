@@ -518,6 +518,74 @@ def t_dedup():
           snowd._snow_identity(n1) != snowd._snow_identity(n4), True)
 
 
+def t_merge_snow():
+    """Lifts, trails and conditions stay current without minting rows."""
+    dawn = {"resort_id": "winter-park", "report_updated_utc": "2026-11-20T12:30:00Z",
+            "report_updated_text": "5:30am", "observed_at": "2026-11-20T12:40:00Z",
+            "base_depth_in": 30, "snow_24h_in": 2, "overall_conditions": "Packed Powder",
+            "lifts_open": 0, "lifts_total": 23, "runs_open": 0, "runs_total": 166}
+    rows, added, updated = snowd.merge_snow([], [dawn])
+    check("first sighting is a new row", (len(rows), added, updated), (1, 1, 0))
+
+    # Same snow, later that morning: the lifts are turning now.
+    nine = dict(dawn, report_updated_utc="2026-11-20T16:05:00Z", report_updated_text="9:05am",
+                observed_at="2026-11-20T16:23:00Z", lifts_open=7, runs_open=41)
+    rows, added, updated = snowd.merge_snow(rows, [nine])
+    check("a lift opening updates the day's row in place", (len(rows), added, updated), (1, 0, 1))
+    check("...with the new counts", (rows[0]["lifts_open"], rows[0]["runs_open"]), ("7", "41"))
+    check("...and the stamp of the report they came from",
+          rows[0]["report_updated_utc"], "2026-11-20T16:05:00Z")
+    check("...but still dated from when the snow was first read",
+          rows[0]["observed_at"], "2026-11-20T12:40:00Z")
+
+    # Evening: the feed reports live status and the lifts have stopped.
+    evening = dict(nine, observed_at="2026-11-20T23:23:00Z", lifts_open=0, runs_open=0,
+                   overall_conditions="Machine Groomed")
+    rows, added, updated = snowd.merge_snow(rows, [evening])
+    check("lifts stopping for the night doesn't zero the day",
+          (rows[0]["lifts_open"], rows[0]["runs_open"]), ("7", "41"))
+    check("...while conditions still follow the latest report",
+          (updated, rows[0]["overall_conditions"]), (1, "Machine Groomed"))
+
+    # Nothing changed but the stamp (Telluride): no rewrite, no commit.
+    touched = dict(nine, report_updated_utc="2026-11-20T17:00:00Z",
+                   observed_at="2026-11-20T17:23:00Z", overall_conditions="Machine Groomed")
+    rows, added, updated = snowd.merge_snow(rows, [touched])
+    check("a moved stamp alone changes nothing", (added, updated), (0, 0))
+    check("...and the stored stamp stays put", rows[0]["report_updated_utc"], "2026-11-20T16:05:00Z")
+
+    # A figure the source leaves out now and then must not erase what we have.
+    patchy = dict(touched, lifts_open="", overall_conditions=None)
+    rows, added, updated = snowd.merge_snow(rows, [patchy])
+    check("a blank never erases a recorded status", (updated, rows[0]["lifts_open"]), (0, "7"))
+
+    # Same day, the depth moves and then moves back: A -> B -> A.
+    b = dict(touched, base_depth_in=31, observed_at="2026-11-20T18:23:00Z")
+    a2 = dict(touched, observed_at="2026-11-20T19:23:00Z")
+    rows, added, _ = snowd.merge_snow(rows, [b])
+    check("a changed depth is a new row", (len(rows), added), (2, 1))
+    rows, added, _ = snowd.merge_snow(rows, [a2])
+    check("going back to an earlier value the same day is a new row too",
+          (len(rows), added), (3, 1))
+    check("...so the latest row is the current reading", rows[-1]["base_depth_in"], 30)
+    rows, added, updated = snowd.merge_snow(rows, [dict(a2, observed_at="2026-11-20T20:23:00Z")])
+    check("...and then it settles", (len(rows), added, updated), (3, 0, 0))
+
+    # Next day's report, then a cache serving yesterday's page again.
+    tomorrow = dict(dawn, report_updated_utc="2026-11-21T12:30:00Z",
+                    observed_at="2026-11-21T12:40:00Z", base_depth_in=34)
+    rows, added, _ = snowd.merge_snow(rows, [tomorrow])
+    check("a new day is a new row", (len(rows), added), (4, 1))
+    stale = dict(a2, observed_at="2026-11-21T13:23:00Z", lifts_open=9)
+    rows, added, updated = snowd.merge_snow(rows, [stale])
+    check("yesterday's report resurfacing is not news", (len(rows), added, updated), (4, 0, 0))
+
+    # Two resorts in one run don't see each other's rows.
+    other = dict(dawn, resort_id="steamboat", observed_at="2026-11-21T12:40:00Z")
+    rows, added, _ = snowd.merge_snow(rows, [other])
+    check("each resort is weighed against its own latest row", (len(rows), added), (5, 1))
+
+
 # ---------------------------------------------------------------- forecast churn
 def t_forecast_payload():
     """A re-fetch must not rewrite a forecast row that has not actually moved.
@@ -546,6 +614,34 @@ def t_forecast_payload():
     from_fetch = dict(base, high_f=63.0)
     check("float and CSV-string compare equal",
           snowd._fc_payload(from_csv), snowd._fc_payload(from_fetch))
+
+
+def t_forecast_jitter():
+    """Weather-model jitter waits; a change in forecast snow doesn't."""
+    first = {"resort_id": "vail", "season": "2026-27", "forecast_date": "2026-11-12",
+             "observed_at": "2026-11-10T15:04:28Z", "high_f": 58.0, "low_f": 40.0,
+             "snow_day_in": "0-1", "snow_night_in": "0", "conditions": "Clear",
+             "wind_dir": "W", "wind_speed": 4.78}
+    rows, added, replaced = snowd.merge_forecast([], [first])
+    check("a first forecast is recorded", (len(rows), added, replaced), (1, 1, 0))
+
+    wobble = dict(first, observed_at="2026-11-10T16:23:00Z", high_f=57.0, wind_speed=4.68)
+    rows, added, replaced = snowd.merge_forecast(rows, [wobble])
+    check("a degree and a breath of wind an hour later is not a new forecast",
+          (added, replaced, rows[0]["high_f"]), (0, 0, 58.0))
+
+    snowier = dict(wobble, observed_at="2026-11-10T17:23:00Z", snow_day_in="3-5")
+    rows, added, replaced = snowd.merge_forecast(rows, [snowier])
+    check("more snow forecast is taken at once",
+          (replaced, len(rows), rows[0]["snow_day_in"], rows[0]["high_f"]), (1, 1, "3-5", 57.0))
+
+    later = dict(snowier, observed_at="2026-11-10T23:30:00Z", high_f=55.0)
+    rows, added, replaced = snowd.merge_forecast(rows, [later])
+    check("after six hours the rest catches up", (replaced, rows[0]["high_f"]), (1, 55.0))
+
+    nextday = dict(later, observed_at="2026-11-11T00:23:00Z")
+    rows, added, replaced = snowd.merge_forecast(rows, [nextday])
+    check("a new fetch day is its own row", (added, len(rows)), (1, 2))
 
 
 def t_latest_forecast():
@@ -616,7 +712,7 @@ def main() -> int:
     for fn in (t_seasons, t_timestamps, t_numbers, t_extraction,
                t_parse_page, t_units, t_text, t_rcr, t_telluride,
                t_rusutsu, t_kitzsteinhorn, t_arlberg, t_soelden, t_mtn_powder,
-               t_dedup, t_forecast_payload, t_latest_forecast, t_registry):
+               t_dedup, t_merge_snow, t_forecast_payload, t_forecast_jitter, t_latest_forecast, t_registry):
         fn()
     if FAILED:
         print(f"FAILED ({len(FAILED)}):")

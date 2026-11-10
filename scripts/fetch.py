@@ -7,8 +7,8 @@
     scripts/fetch.py --season 2026-27
 
 Fine to run at whatever frequency suits: a report with the same numbers on the
-same day is the same row, so extra runs add nothing and missed days just leave
-gaps. Please don't run it in a tight loop, though — these are small operations
+same day is the same row, so extra runs add nothing beyond keeping that row's
+lifts, trails and conditions current, and missed days just leave gaps. Please don't run it in a tight loop, though — these are small operations
 giving the data away.
 """
 
@@ -105,18 +105,20 @@ def main() -> int:
         print(f"\ndry run: would consider {total_s} snow row(s), {total_f} forecast row(s)")
     else:
         for season, rows in sorted(snow_rows.items()):
-            added, total = append_snow(rows, season)
-            print(f"\nsnow_{season}.csv      +{added} new row(s), {total} total")
+            added, updated, total = append_snow(rows, season)
+            print(f"\nsnow_{season}.csv      +{added} new row(s), {updated} brought up to date, "
+                  f"{total} total")
         for season, rows in sorted(fc_rows.items()):
-            added, total = append_forecast(rows, season)
-            print(f"forecast_{season}.csv  +{added} new row(s), {total} total")
+            added, replaced, total = append_forecast(rows, season)
+            print(f"forecast_{season}.csv  +{added} new row(s), {replaced} revised, {total} total")
         # A partial run (--only) hasn't checked everything, so it doesn't get
         # to tell the site that everything was just checked.
-        _write_status(results, by_id, observed_at, args.season, skipped,
-                      full_run=not wanted)
+        data_rev = ""
         if not args.no_build:
             import build_site_data
-            build_site_data.main()
+            data_rev = build_site_data.build()
+        _write_status(results, by_id, observed_at, args.season, skipped,
+                      full_run=not wanted, data_rev=data_rev)
 
     print(
         f"\n{len(ok)} reporting, {len(none)} no report yet, {len(err)} error(s), "
@@ -126,7 +128,8 @@ def main() -> int:
     return 1 if live and not ok and err else 0
 
 
-def _write_status(results, by_id, observed_at, season_override, skipped, full_run=True) -> None:
+def _write_status(results, by_id, observed_at, season_override, skipped, full_run=True,
+                  data_rev="") -> None:
     """A small run log, and the "last checked" stamp the site shows.
 
     Two files, neither committed. `data/last_run.json` is the full per-resort
@@ -138,6 +141,10 @@ def _write_status(results, by_id, observed_at, season_override, skipped, full_ru
     "we looked and nothing had changed" is exactly what someone staring at an
     eleven-hour-old number wants to know, so it travels separately: CI ships
     this file with the site on every run without ever committing it.
+
+    `data_rev` is the fingerprint of the `data.js` built by this run. An open
+    tab compares it with the one it already holds, so a check that found
+    nothing new costs it these few hundred bytes and not the whole dataset.
     """
     season = season_override or season_for(datetime.now(timezone.utc))
     status = {
@@ -163,6 +170,8 @@ def _write_status(results, by_id, observed_at, season_override, skipped, full_ru
             "no_report": sum(1 for r in results if r.status == "no_report"),
             "errors": errors,
         }
+        if data_rev:
+            site_status["data_rev"] = data_rev
         (REPO / "site").mkdir(parents=True, exist_ok=True)
         (REPO / "site" / "status.js").write_text(
             "/* Written by scripts/fetch.py on every run - not committed. */\n"
