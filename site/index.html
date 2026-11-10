@@ -351,7 +351,14 @@ function series(id){
   });
 }
 function latest(id){ var a = series(id); return a.length ? a[a.length-1] : null; }
-function forecast(id){ var f = D.forecast[S.season]; return (f && f[id]) || []; }
+/** The forecast, from today on. The stored forecast is whatever the resort
+ *  last published, which after an early-morning-UTC fetch, or once a resort
+ *  stops updating, starts with days that are already over where the resort is. */
+function forecast(id){
+  var f = D.forecast[S.season], a = (f && f[id]) || [];
+  var today = localDate((byId[id] || {}).tz || "UTC");
+  return a.filter(function(d){ return d.date >= today; });
+}
 
 var U = { in: {suf:"in", k:"_in"}, cm: {suf:"cm", k:"_cm"} };
 function val(obs, metric){ if(!obs) return null; var v = obs[metric + U[S.unit].k]; return (v===null||v===undefined)?null:v; }
@@ -433,12 +440,44 @@ function daysAgo(iso){
 function ago(iso){
   var d = daysAgo(iso);
   if(d === null) return "–";
-  if(d < 0.0417) return "just now";
+  var mins = d * 1440;
+  if(mins < 2) return "just now";
+  if(mins < 60) return Math.floor(mins) + "m ago";
   if(d < 1) return Math.round(d*24) + "h ago";
   if(d < 2) return "yesterday";
   if(d < 30) return Math.round(d) + "d ago";
   var m = Math.round(d/30.44);
   return m + (m === 1 ? " month ago" : " months ago");
+}
+/** A time as the clock said it, in the reader's own timezone: "10:04 AM",
+ *  or "Mon 10:04 PM" once it is no longer today.
+ *
+ *  "11h ago" is only true at the moment it is drawn. An absolute time beside
+ *  it stays true however long the tab has been sitting open. */
+function clock(iso){
+  var t = new Date(iso);
+  if(isNaN(t)) return "";
+  var now = new Date();
+  var time = t.toLocaleTimeString(undefined, {hour:"numeric", minute:"2-digit"});
+  if(t.toDateString() === now.toDateString()) return time;
+  var day = Math.abs(now - t) < 6 * 86400000
+    ? t.toLocaleDateString(undefined, {weekday:"short"})
+    : t.toLocaleDateString(undefined, {month:"short", day:"numeric"});
+  return day + " " + time;
+}
+/** The whole thing, for hover titles. */
+function fullTime(iso){
+  var t = new Date(iso);
+  if(isNaN(t)) return "";
+  return t.toLocaleString(undefined, {weekday:"short", year:"numeric", month:"short",
+    day:"numeric", hour:"numeric", minute:"2-digit", timeZoneName:"short"});
+}
+/** Today's date where the resort is, as YYYY-MM-DD. */
+function localDate(tz){
+  try {
+    return new Intl.DateTimeFormat("en-CA", {timeZone: tz, year:"numeric", month:"2-digit", day:"2-digit"})
+      .format(new Date());
+  } catch(e){ return new Date().toISOString().slice(0, 10); }
 }
 function esc(s){
   return String(s===null||s===undefined?"":s).replace(/[&<>"']/g, function(c){
@@ -597,6 +636,7 @@ function highlightMarker(id){
 }
 
 function drawMarkers(fit){
+  if(!map){ drawLegend(); return; }   // Leaflet never arrived; the table still works
   layer.clearLayers(); markers = {};
   var pts = [];
   D.resorts.forEach(function(r){
@@ -665,7 +705,9 @@ function sortVal(r, k){
   var obs = latest(r.id);
   if(k === "name") return r.name.toLowerCase();
   if(k === "cond") return (obs && obs.cond ? obs.cond : "").toLowerCase();
-  if(k === "up")   { var t = obs && obs.up ? Date.parse(obs.up) : NaN; return isNaN(t) ? null : t; }
+  // the same time the column shows, so resorts with no posted update time
+  // sort by the age they display rather than sinking to the bottom
+  if(k === "up")   { var t = obs ? Date.parse(readingTime(obs)) : NaN; return isNaN(t) ? null : t; }
   return inches(obs, k);
 }
 
@@ -697,11 +739,12 @@ function render(){
     // we fetched would read "just now" under a column headed Updated, which
     // claims a freshness the resort never stated — so say which one it is.
     var polled = !!(obs && !obs.up);
-    var upTitle = esc(obs && obs.upText ? obs.upText
-      : (polled ? "No update time posted — this is when we last checked." : ""));
+    var upTitle = !obs ? "" : esc(polled
+      ? "No update time posted — we first read these numbers " + fullTime(obs.t) + "."
+      : "Report published " + fullTime(obs.up) + ".");
     var upCell = !has ? '<span class="nodata-pill">not yet</span>'
       : '<span class="'+(age !== null && age > 3 ? "stale" : "dim")+(polled ? " polled" : "")+'"'+
-        ' title="'+upTitle+'">'+ago(readingTime(obs))+'</span>';
+        ' title="'+upTitle+'" data-ago="'+esc(readingTime(obs))+'">'+ago(readingTime(obs))+'</span>';
     html +=
       '<tr class="row'+(r.id===S.open?" sel":"")+'" data-id="'+r.id+'" tabindex="0" aria-expanded="'+(S.open===r.id)+'">'+
         '<td class="l"><button class="star" aria-pressed="'+isFav+'" data-fav="'+r.id+'" '+
@@ -806,7 +849,12 @@ function detailHTML(r){
   } else {
     if(isConverted(obs, null)) notes.push(convNote(obs));
     if(obs && !obs.up) notes.push("This resort doesn't post an update time, so the age shown "+
-      "is when we last checked, not when they last refreshed it.");
+      "is when we first read these numbers, not when they last refreshed it.");
+  }
+  var st = window.SNOWD_STATUS;
+  if(st && st.errors && st.errors[r.id]){
+    notes.push("We couldn't read this one at the last check (" + st.errors[r.id] + ")" +
+      (has ? ", so this is the last report we did get." : "."));
   }
   var absence = notes.map(function(n){
     return '<div class="cnote">'+esc(n)+'</div>';
@@ -1028,33 +1076,71 @@ window.addEventListener("resize", function(){ if(S.open) drawCharts(S.open); });
  *  always there, the key is just a convenience.
  */
 function freshest(){
-  var best = "";
+  var best = "", bestAny = "";
   var seasons = D.snow || {};
   Object.keys(seasons).forEach(function(s){
     var per = seasons[s] || {};
     Object.keys(per).forEach(function(id){
       (per[id] || []).forEach(function(o){
+        // A resort's own publish time where it gives one. Our fetch time is
+        // only a stand-in, and "newest report" should not mean "newest fetch".
+        if(o.up && o.up > best) best = o.up;
         var t = readingTime(o);
-        if(t > best) best = t;
+        if(t > bestAny) bestAny = t;
       });
     });
   });
   // the payload keys are only a fallback for data with no usable timestamps
-  return best || D.data_as_of || D.generated_at || "";
+  return best || bestAny || D.data_as_of || D.generated_at || "";
 }
+
+/** When the resorts were last checked, and whether that is known or inferred.
+ *
+ *  status.js carries the time of the last fetch run, whether or not it found
+ *  anything. Without it (an older deploy, or a fresh clone) the best available
+ *  is the newest row in the data, which is only the last check that found
+ *  something new — so it is labelled as that instead.
+ */
+function lastChecked(){
+  var st = window.SNOWD_STATUS;
+  var known = (st && st.checked_at) || "";
+  var inferred = D.data_as_of || "";
+  if(known && known >= inferred) return {t: known, known: true};
+  return {t: inferred, known: !!known};
+}
+
+/** Checks are scheduled hourly but GitHub runs them late and skips some. Past
+ *  this many hours without one, say so rather than let old numbers pass as
+ *  current. */
+var LATE_HOURS = 6;
 
 function setSub(){
   var rep = D.resorts.filter(function(r){ return reporting(r.id); }).length;
   var el = document.getElementById("sub");
   var asOf = freshest();
-  el.textContent = D.resorts.length + " Epic & Ikon resorts · " + rep + " reporting snow for " +
-    S.season + " · newest report " + (asOf ? ago(asOf) : "none yet");
+  var chk = lastChecked();
+  var html = D.resorts.length + " Epic &amp; Ikon resorts · " + rep + " reporting snow for " +
+    esc(S.season) + " · newest report " +
+    (asOf ? '<span title="'+esc(fullTime(asOf))+'">'+ago(asOf)+'</span>' : "none yet");
+  if(chk.t){
+    var late = daysAgo(chk.t) * 24 > LATE_HOURS;
+    html += ' · <span'+(late ? ' class="stale"' : '')+' title="'+esc(
+        (chk.known ? "Resorts last checked " : "Newest data fetched ") + fullTime(chk.t) + ". " +
+        "Checks are scheduled hourly, but they run late and some get skipped." +
+        (late ? " This one is overdue, so the resorts may have posted since." : ""))+'">'+
+      (chk.known ? "last checked " : "last new data ") + esc(clock(chk.t)) +
+      " (" + ago(chk.t) + ")</span>";
+  }
+  el.innerHTML = html;
   // "has no adapter", not "is not Vail" — several partner resorts are read now.
   var noSrc = D.resorts.filter(function(r){ return !r.src; }).length;
+  var st = window.SNOWD_STATUS;
+  var nErr = st && st.errors ? Object.keys(st.errors).length : 0;
   document.getElementById("foot").innerHTML =
     "Season <strong>"+esc(S.season)+"</strong>. "+
     rep+" of "+D.resorts.length+" resorts have a report up right now; "+
     noSrc+" more are on the map but we can't read their numbers yet. "+
+    (nErr ? nErr + " couldn't be reached at the last check. " : "")+
     "Your favourites and settings stay in this browser.";
 }
 
@@ -1074,10 +1160,46 @@ function setSub(){
   document.getElementById("u-in").setAttribute("aria-pressed", String(S.unit === "in"));
   document.getElementById("u-cm").setAttribute("aria-pressed", String(S.unit === "cm"));
 
-  initMap();
+  // Leaflet comes from a CDN. If it is blocked or down, lose the map rather
+  // than the whole page — the table doesn't need it.
+  if(window.L) initMap();
+  else {
+    document.getElementById("map").innerHTML =
+      '<div class="empty" style="height:100%">The map couldn\'t load, but the table below has everything.</div>';
+    drawLegend();
+  }
   render();
   setSub();
+
+  // Ages are only true when drawn, so redraw them. Just the text: rebuilding
+  // the table would yank an open chart out from under the cursor.
+  function tick(){
+    setSub();
+    document.querySelectorAll("#tbody [data-ago]").forEach(function(el){
+      el.textContent = ago(el.getAttribute("data-ago"));
+    });
+  }
+  setInterval(tick, 30000);
+  document.addEventListener("visibilitychange", function(){ if(!document.hidden) tick(); });
 })();
+
+/** Swap in a freshly loaded data.js without reloading the page, so a tab left
+ *  open picks up new reports and keeps the reader's place, filters and all. */
+window.__snowdRefresh = function(){
+  var next = window.SNOWD_DATA;
+  if(!next || !next.resorts) return;
+  D = next;
+  byId = {};
+  D.resorts.forEach(function(r){ byId[r.id] = r; });
+  if(D.seasons.indexOf(S.season) === -1) S.season = D.seasons[0] || "";
+  var sel = document.getElementById("season");
+  sel.innerHTML = D.seasons.map(function(s){
+    return '<option value="'+esc(s)+'"'+(s === S.season ? " selected" : "")+">"+esc(s)+"</option>";
+  }).join("") || '<option value="">no data</option>';
+  drawMarkers(false);
+  render();
+  setSub();
+};
 };
 </script>
 
@@ -1095,18 +1217,55 @@ function setSub(){
  * part of the filename and fail to find the file.
  */
 (function(){
-  var src = "data.js";
-  if(location.protocol === "http:" || location.protocol === "https:"){
-    src += "?v=" + Date.now();
+  var http = location.protocol === "http:" || location.protocol === "https:";
+  function load(name, cb){
+    var s = document.createElement("script");
+    s.src = name + (http ? "?v=" + Date.now() : "");
+    s.onload  = function(){ s.remove(); cb(true); };
+    s.onerror = function(){ s.remove(); cb(false); };
+    document.head.appendChild(s);
   }
-  var s = document.createElement("script");
-  s.src = src;
-  s.onload = function(){ window.__snowdBoot(); };
-  s.onerror = function(){
-    var el = document.getElementById("sub");
-    if(el) el.textContent = "Couldn't load data.js — try running scripts/build_site_data.py.";
-  };
-  document.head.appendChild(s);
+
+  // status.js says when the resorts were last checked. It is written by the
+  // fetch and never committed, so it is simply absent on a fresh clone — the
+  // page gets by without it.
+  var waiting = 2, dataOk = false;
+  function ready(){
+    if(--waiting) return;
+    if(dataOk) window.__snowdBoot();
+    else {
+      var el = document.getElementById("sub");
+      if(el) el.textContent = "Couldn't load data.js — try running scripts/build_site_data.py.";
+    }
+  }
+  load("status.js", function(){ ready(); });
+  load("data.js", function(ok){ dataOk = ok; ready(); });
+
+  /* A tab left open goes stale twice over: the ages drift (the page redraws
+   * those itself), and the data underneath is whatever was current when it
+   * loaded. So while the tab is visible, ask every few minutes whether a
+   * fetch has run since — status.js is a couple of hundred bytes — and only
+   * if one has, pull data.js again and redraw in place.
+   *
+   * Not on file://, where there is no deploy to have changed.
+   */
+  if(!http) return;
+  var POLL_MS = 5 * 60000, lastPoll = Date.now(), busy = false;
+  function poll(){
+    if(document.hidden || busy || Date.now() - lastPoll < POLL_MS) return;
+    lastPoll = Date.now(); busy = true;
+    var before = (window.SNOWD_STATUS || {}).checked_at || "";
+    load("status.js", function(ok){
+      var after = (window.SNOWD_STATUS || {}).checked_at || "";
+      if(!ok || after === before){ busy = false; return; }
+      load("data.js", function(ok2){
+        busy = false;
+        if(ok2 && window.__snowdRefresh) window.__snowdRefresh();
+      });
+    });
+  }
+  setInterval(poll, 60000);
+  document.addEventListener("visibilitychange", poll);
 })();
 </script>
 </body>

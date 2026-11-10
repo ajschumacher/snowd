@@ -548,6 +548,34 @@ def t_forecast_payload():
           snowd._fc_payload(from_csv), snowd._fc_payload(from_fetch))
 
 
+def t_latest_forecast():
+    """A same-day re-fetch that moves one forecast day must not hide the rest.
+
+    Only the day that moved gets a new observed_at, so picking rows by the
+    newest timestamp alone left the viewer with that one day.
+    """
+    import build_site_data
+
+    def fc(date, at, cond="Cloudy", rid="vail"):
+        return {"resort_id": rid, "forecast_date": date, "observed_at": at, "conditions": cond}
+
+    rows = [
+        fc("2026-11-09", "2026-11-09T19:00:00Z"),            # yesterday's fetch
+        fc("2026-11-10", "2026-11-09T19:00:00Z", "Old"),
+        fc("2026-11-10", "2026-11-10T03:00:00Z"),            # today, first fetch
+        fc("2026-11-11", "2026-11-10T03:00:00Z"),
+        fc("2026-11-12", "2026-11-10T03:00:00Z"),
+        fc("2026-11-11", "2026-11-10T15:00:00Z", "Snow"),    # today, one day moved
+        fc("2026-11-10", "2026-11-08T12:00:00Z", rid="stowe"),
+    ]
+    out = build_site_data.latest_forecast(rows)
+    vail = sorted((r["forecast_date"], r["conditions"]) for r in out if r["resort_id"] == "vail")
+    check("every day of the latest fetch day survives a partial re-fetch",
+          vail, [("2026-11-10", "Cloudy"), ("2026-11-11", "Snow"), ("2026-11-12", "Cloudy")])
+    check("each resort is judged on its own latest fetch day",
+          [r["forecast_date"] for r in out if r["resort_id"] == "stowe"], ["2026-11-10"])
+
+
 # ---------------------------------------------------------------- registry
 def t_registry():
     rs = snowd.load_resorts()
@@ -588,7 +616,7 @@ def main() -> int:
     for fn in (t_seasons, t_timestamps, t_numbers, t_extraction,
                t_parse_page, t_units, t_text, t_rcr, t_telluride,
                t_rusutsu, t_kitzsteinhorn, t_arlberg, t_soelden, t_mtn_powder,
-               t_dedup, t_forecast_payload, t_registry):
+               t_dedup, t_forecast_payload, t_latest_forecast, t_registry):
         fn()
     if FAILED:
         print(f"FAILED ({len(FAILED)}):")

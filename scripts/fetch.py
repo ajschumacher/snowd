@@ -6,8 +6,8 @@
     scripts/fetch.py --only vail,keystone
     scripts/fetch.py --season 2026-27
 
-Fine to run at whatever frequency suits: rows de-duplicate on each resort's
-own publish timestamp, so extra runs do nothing and missed days just leave
+Fine to run at whatever frequency suits: a report with the same numbers on the
+same day is the same row, so extra runs add nothing and missed days just leave
 gaps. Please don't run it in a tight loop, though — these are small operations
 giving the data away.
 """
@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import concurrent.futures as cf
 import json
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -26,6 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from snowd import (
     ADAPTERS,  # noqa: E402
     DATA,
+    REPO,
     FetchResult,
     append_forecast,
     append_snow,
@@ -108,7 +110,10 @@ def main() -> int:
         for season, rows in sorted(fc_rows.items()):
             added, total = append_forecast(rows, season)
             print(f"forecast_{season}.csv  +{added} new row(s), {total} total")
-        _write_status(results, by_id, observed_at, args.season, skipped)
+        # A partial run (--only) hasn't checked everything, so it doesn't get
+        # to tell the site that everything was just checked.
+        _write_status(results, by_id, observed_at, args.season, skipped,
+                      full_run=not wanted)
         if not args.no_build:
             import build_site_data
             build_site_data.main()
@@ -121,8 +126,19 @@ def main() -> int:
     return 1 if live and not ok and err else 0
 
 
-def _write_status(results, by_id, observed_at, season_override, skipped) -> None:
-    """A small run log the site uses to show freshness and per-resort health."""
+def _write_status(results, by_id, observed_at, season_override, skipped, full_run=True) -> None:
+    """A small run log, and the "last checked" stamp the site shows.
+
+    Two files, neither committed. `data/last_run.json` is the full per-resort
+    log. `site/status.js` is the part the viewer wants: when this run happened
+    and which resorts it couldn't read.
+
+    That stamp can't live in `site/data.js`, which is deliberately a pure
+    function of the CSVs so that a run finding nothing new commits nothing. But
+    "we looked and nothing had changed" is exactly what someone staring at an
+    eleven-hour-old number wants to know, so it travels separately: CI ships
+    this file with the site on every run without ever committing it.
+    """
     season = season_override or season_for(datetime.now(timezone.utc))
     status = {
         "observed_at": observed_at,
@@ -138,6 +154,55 @@ def _write_status(results, by_id, observed_at, season_override, skipped) -> None
         )
     path = DATA / "last_run.json"
     path.write_text(json.dumps(status, indent=1, sort_keys=True) + "\n", encoding="utf-8")
+
+    errors = {r.resort_id: r.note for r in results if r.status == "error"}
+    if full_run:
+        site_status = {
+            "checked_at": observed_at,
+            "ok": sum(1 for r in results if r.status == "ok"),
+            "no_report": sum(1 for r in results if r.status == "no_report"),
+            "errors": errors,
+        }
+        (REPO / "site").mkdir(parents=True, exist_ok=True)
+        (REPO / "site" / "status.js").write_text(
+            "/* Written by scripts/fetch.py on every run - not committed. */\n"
+            f"window.SNOWD_STATUS = {json.dumps(site_status, sort_keys=True)};\n",
+            encoding="utf-8",
+        )
+
+    _ci_report(results, by_id, errors)
+
+
+def _ci_report(results, by_id, errors) -> None:
+    """On GitHub Actions, put the outcome where it can be seen without opening a log.
+
+    A resort that errors doesn't fail the run — one site being down shouldn't
+    cost the other sixty — which also means nothing draws attention to it. A
+    warning annotation and a line in the run summary is the least that can be
+    done about that.
+    """
+    for rid, note in sorted(errors.items()):
+        if os.environ.get("GITHUB_ACTIONS"):
+            print(f"::warning title=snowd fetch::{by_id[rid].name}: {note}")
+    summary = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not summary:
+        return
+    counts: dict[str, int] = {}
+    for r in results:
+        counts[r.status] = counts.get(r.status, 0) + 1
+    lines = [
+        "### Snow fetch",
+        "",
+        f"{counts.get('ok', 0)} reporting · {counts.get('no_report', 0)} no report yet · "
+        f"{counts.get('error', 0)} error(s)",
+        "",
+    ]
+    if errors:
+        lines += ["| Resort | Error |", "|---|---|"]
+        lines += [f"| {by_id[rid].name} | {note} |" for rid, note in sorted(errors.items())]
+        lines.append("")
+    with open(summary, "a", encoding="utf-8") as fh:
+        fh.write("\n".join(lines) + "\n")
 
 
 if __name__ == "__main__":
