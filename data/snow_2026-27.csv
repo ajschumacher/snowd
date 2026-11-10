@@ -123,3 +123,5 @@ observed_at,season,resort_id,report_updated_utc,report_updated_text,base_depth_i
 2026-11-10T15:26:40Z,2026-27,soelden,,,21.7,55.0,,,,,,,,,,,,true,,cm,,15,31,,,
 2026-11-10T19:02:58Z,2026-27,heavenly,2026-11-10T17:26:00Z,"Updated November 10, 2026 at 9:26 AM PST",0.0,0.0,7.0,17.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,Low Snowfall,false,50,"in,cm",,,,,,
 2026-11-10T19:02:58Z,2026-27,kimberley,2026-11-10T16:36:00Z,"NOVEMBER 10, 2026 | 10:36am",0.0,0.0,4.7,12.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,,true,,cm,,0,,,,20
+2026-11-10T21:50:44Z,2026-27,soelden,,,21.3,54.0,,,,,,,,,,,,true,,cm,,15,31,,,
+2026-11-10T21:50:44Z,2026-27,whistler-blackcomb,2026-11-09T21:08:00Z,"Updated November 09, 2026 at 1:08 PM PST",11.0,30.0,2.0,5.0,0.0,0.0,0.0,0.0,2.0,5.0,2.0,5.0,Early Season,false,80,"in,cm",,,,,,
