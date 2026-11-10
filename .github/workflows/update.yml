@@ -2,19 +2,21 @@ name: Update snow data and deploy site
 
 on:
   schedule:
-    # Every three hours, at an uncommon minute.
+    # Every hour, at an uncommon minute — in the hope of a real check every
+    # three or four.
     #
-    # Resorts post their morning report around 12:30-14:00 UTC, so the 12:23
-    # and 15:23 slots bracket it. But GitHub queues scheduled workflows on a
-    # shared pool and drops them under load: on this repo's first day only
-    # 2 of 6 slots at "45 */4" actually fired, and both were late. Hence
-    # eight slots rather than six, and :23 rather than the hour or :45,
-    # where contention is worst.
+    # GitHub queues scheduled workflows on a shared pool, starts them late and
+    # drops them under load. At "23 */3" (eight slots a day), 15 of 37 slots
+    # fired over this repo's first five days, anywhere from 16 minutes to
+    # nearly 3 hours late, leaving gaps of up to 13 hours — long enough to
+    # miss a morning report until the afternoon. The slots can't be made
+    # reliable from in here, so there are more of them.
     #
-    # Extra runs cost nothing: rows de-duplicate on each resort's own publish
-    # timestamp, so a run with no new report writes nothing and commits
-    # nothing. More chances is the fix; a tighter promise is not.
-    - cron: "23 */3 * * *"
+    # Extra runs cost nothing: a report with the same numbers on the same day
+    # is the same row, so a run with nothing new writes nothing and commits
+    # nothing. Even if every slot fired, that is one page view an hour per
+    # resort.
+    - cron: "23 * * * *"
   workflow_dispatch:
   push:
     branches: [main]
@@ -52,12 +54,26 @@ jobs:
           git add data site/data.js
           if git diff --staged --quiet; then
             echo "No new data to commit."
+            # still pick up anything pushed since this run was queued
+            git pull --rebase --autostash origin main
           else
             git commit -m "data: snow reports $(date -u +'%Y-%m-%d %H:%M') UTC"
             # another run may have landed while we were fetching
             git pull --rebase --autostash origin main
             git push
           fi
+
+      # The site is packaged here, from this job's working tree, rather than
+      # from a fresh checkout in the deploy job. The fetch leaves behind
+      # site/status.js — when it ran and what it couldn't read — which is
+      # never committed (it changes on every run, and a run that finds nothing
+      # new is supposed to commit nothing). Packaging here is what gets it
+      # onto the site anyway, so the page can say when it last checked.
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
 
   # Deploys in the same run as the fetch on purpose: a commit pushed with
   # GITHUB_TOKEN does not trigger workflows, so a separate push-triggered
@@ -69,15 +85,5 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: main   # pick up the row the fetch job just committed
-
-      - uses: actions/configure-pages@v5
-
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: site
-
       - id: deployment
         uses: actions/deploy-pages@v4

@@ -56,6 +56,32 @@ def discover_seasons() -> list[str]:
     return sorted(seasons, reverse=True)
 
 
+def latest_forecast(rows: list[dict]) -> list[dict]:
+    """The most recent forecast per resort: one row per forecast day.
+
+    "Most recent" is the latest fetch *day*, not the latest fetch timestamp.
+    A same-day re-fetch only rewrites the forecast days that actually moved
+    (see `append_forecast`), so the rows of one day's forecast carry a mix of
+    timestamps. Selecting on the single newest timestamp showed only the days
+    that had changed in the last run — a resort would drop from five forecast
+    days to four, or to one, until the next UTC day.
+    """
+    latest_day: dict[str, str] = {}
+    for row in rows:
+        rid, day = row["resort_id"], (row.get("observed_at") or "")[:10]
+        if day > latest_day.get(rid, ""):
+            latest_day[rid] = day
+    best: dict[tuple, dict] = {}
+    for row in rows:
+        rid, t = row["resort_id"], row.get("observed_at") or ""
+        if t[:10] != latest_day.get(rid):
+            continue
+        key = (rid, row["forecast_date"])
+        if key not in best or t >= (best[key].get("observed_at") or ""):
+            best[key] = row
+    return list(best.values())
+
+
 def main() -> int:
     resorts = load_resorts()
     out = {
@@ -112,17 +138,8 @@ def main() -> int:
         out["snow"][season] = per
 
         fper: dict[str, list[dict]] = {}
-        latest_fetch: dict[str, str] = {}
-        for row in _rows(DATA / f"forecast_{season}.csv"):
+        for row in latest_forecast(_rows(DATA / f"forecast_{season}.csv")):
             rid = row["resort_id"]
-            t = row.get("observed_at") or ""
-            if t >= latest_fetch.get(rid, ""):
-                latest_fetch[rid] = t
-        for row in _rows(DATA / f"forecast_{season}.csv"):
-            rid = row["resort_id"]
-            # only the most recent forecast run per resort reaches the viewer
-            if (row.get("observed_at") or "") != latest_fetch.get(rid):
-                continue
             fper.setdefault(rid, []).append({
                 "date": row["forecast_date"],
                 "hi_f": _f(row.get("high_f")), "lo_f": _f(row.get("low_f")),

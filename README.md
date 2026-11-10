@@ -262,16 +262,28 @@ stale numbers without saying so — and this site goes out with
 
 ### Keeping it updated
 
-`.github/workflows/update.yml` is scheduled every three hours, commits any new
-rows, and redeploys the site.
+`.github/workflows/update.yml` is scheduled every hour, commits any new rows,
+and redeploys the site.
 
-It doesn't actually run every three hours. GitHub queues scheduled workflows on
-a shared pool and drops them when things are busy — on this repo's first day,
-2 of 6 scheduled slots fired, both late. That's fair enough for free compute.
-Nothing here depends on punctuality: rows are keyed on each resort's own
-publish time, so a run that finds nothing writes nothing, and missing a day
-just leaves a small gap in the chart. Eight slots rather than six, at an
-uncommon minute instead of `:45`, seems to help.
+It doesn't actually run every hour, and isn't expected to. GitHub queues
+scheduled workflows on a shared pool, starts them late and drops them when
+things are busy. Scheduled every three hours, 15 of 37 slots fired over the
+first five days, up to three hours late, with gaps as long as 13 hours — a
+morning report could sit unread until mid-afternoon. That's fair enough for
+free compute, but it can't be fixed from inside the workflow, so there are
+simply more slots: hourly, in the hope of a real check every three or four
+hours. Nothing here depends on punctuality: same resort, same day, same
+numbers is the same row, so a run that finds nothing writes nothing, and
+missing a day just leaves a small gap in the chart.
+
+Since the schedule is a hope rather than a promise, the page says when it last
+actually checked — "last checked 10:04 AM (12m ago)" — and flags it once that's
+more than six hours back. That time comes from `site/status.js`, which the
+fetch writes on every run and which is deliberately **not committed**: it
+changes every run, and a run that finds nothing new is supposed to commit
+nothing. The workflow packages the site from the fetch job's own working tree,
+so the file ships with each deploy anyway. A tab left open re-reads it every
+few minutes and pulls fresh data when a new check has landed.
 
 The fetch and the Pages deploy sit in the **same** workflow run on purpose. A
 commit pushed with `GITHUB_TOKEN` doesn't trigger other workflows, so a
@@ -319,8 +331,8 @@ on.
 A couple of sources don't publish an update time at all (Ski Arlberg, Sölden).
 For those, de-duplication falls back to the values plus the fetch date, so you
 get a row a day unless the numbers move, and the viewer marks the age it's
-showing — "just now" under a column headed *Updated* would be claiming a
-freshness the resort never actually said.
+showing as the time we first read those numbers — "just now" under a column
+headed *Updated* would be claiming a freshness the resort never actually said.
 
 `units_native` is `in,cm` where the source gave us both, or `in` / `cm` where
 it gave one, so a converted figure can always be told apart from a reported
@@ -362,8 +374,10 @@ scheduled job would commit that noise several times a day.
 
 Same reasoning for `site/data.js` carrying `data_as_of` — the freshest
 observation in the data, rather than a "generated now" stamp. It's a pure
-function of the CSVs, so it only changes when they do. `data/last_run.json` is
-a local run log and is gitignored; the CI logs say the same thing.
+function of the CSVs, so it only changes when they do. The wall-clock "we
+looked just now" lives in two gitignored files instead: `data/last_run.json`,
+the full per-resort run log, and `site/status.js`, the last-checked time and
+any resorts that errored, which is what the viewer reads.
 
 ### Seasons
 
@@ -384,7 +398,8 @@ it really does publish. Forecast rows take the season of the day they forecast.
 The same idea carries through the viewer: charts are plotted against the
 resort's publish time, each resort's history is ordered by it, and "newest
 report" in the header is the freshest publish time across all of them.
-`observed_at` only ever records when we polled.
+`observed_at` only ever records when we polled. "Last checked", beside it, is
+the other half: when the fetch last ran, whether or not anything had changed.
 
 ## Layout
 
@@ -394,6 +409,7 @@ data/      resorts.csv, snow_<season>.csv, forecast_<season>.csv
 scripts/   snowd.py (library + adapters), fetch.py (CLI), build_site_data.py
            test_snowd.py (offline self-checks), check_live.py (live checks)
 site/      index.html (viewer), data.js (generated)
+           status.js (last-checked stamp, written by each fetch, gitignored)
 tests/     fixtures/ — a saved response per adapter, so the parsers can be
            tested against real markup without hitting the network
 ```
@@ -419,7 +435,8 @@ tests/     fixtures/ — a saved response per adapter, so the parsers can be
   from there.
 - **These are web pages, not APIs.** When a site gets redesigned its parser
   needs updating. A resort that fails outright shows as `error` in the run
-  output and `data/last_run.json`. The quieter failure is a parser that still
+  output and `data/last_run.json`, as a warning on the Actions run, and as a
+  note on that resort in the viewer. The quieter failure is a parser that still
   runs and finds nothing, which looks exactly like a resort between seasons —
   that's what `scripts/check_live.py` is for. It checks that the markup each
   parser leans on is still there, and flags an adapter where none of its
