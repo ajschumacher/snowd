@@ -1,8 +1,22 @@
-observed_at,season,resort_id,report_updated_utc,report_updated_text,base_depth_in,base_depth_cm,season_total_in,season_total_cm,snow_12h_in,snow_12h_cm,snow_24h_in,snow_24h_cm,snow_48h_in,snow_48h_cm,snow_7d_in,snow_7d_cm,overall_conditions,summit_readings,vail_resort_id
-2026-11-04T19:14:42Z,2025-26,breckenridge,2026-06-23T22:22:00Z,"Updated June 23, 2026 at 4:22 PM MDT",0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,Low Snowfall,false,4
-2026-11-04T19:14:42Z,2025-26,hunter,2026-06-23T22:22:00Z,"Updated June 23, 2026 at 6:22 PM EDT",0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,Low Snowfall,false,73
-2026-11-04T19:14:42Z,2025-26,mount-snow,2026-06-23T22:22:00Z,"Updated June 23, 2026 at 6:22 PM EDT",0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,Low Snowfall,false,0
-2026-11-04T19:14:42Z,2025-26,okemo,2026-06-23T22:24:00Z,"Updated June 23, 2026 at 6:24 PM EDT",0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,Low Snowfall,false,86
-2026-11-04T19:14:42Z,2025-26,park-city,2026-06-23T22:24:00Z,"Updated June 23, 2026 at 4:24 PM MDT",0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,Low Snowfall,false,53
-2026-11-04T19:14:42Z,2025-26,stevens-pass,2026-06-23T22:24:00Z,"Updated June 23, 2026 at 3:24 PM PDT",0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,,false,44
-2026-11-04T19:14:42Z,2025-26,stowe,2026-06-23T22:21:00Z,"Updated June 23, 2026 at 6:21 PM EDT",0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,,false,85
+observed_at,season,resort_id,report_updated_utc,report_updated_text,base_depth_in,base_depth_cm,season_total_in,season_total_cm,snow_12h_in,snow_12h_cm,snow_24h_in,snow_24h_cm,snow_48h_in,snow_48h_cm,snow_7d_in,snow_7d_cm,overall_conditions,summit_readings,vail_resort_id,units_native,reading_level,lifts_open,lifts_total,runs_open,runs_total,runs_groomed
+2026-11-04T19:14:42Z,2025-26,breckenridge,2026-06-23T22:22:00Z,"Updated June 23, 2026 at 4:22 PM MDT",0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,Low Snowfall,false,4,,,,,,,
+2026-11-04T19:14:42Z,2025-26,hunter,2026-06-23T22:22:00Z,"Updated June 23, 2026 at 6:22 PM EDT",0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,Low Snowfall,false,73,,,,,,,
+2026-11-04T19:14:42Z,2025-26,mount-snow,2026-06-23T22:22:00Z,"Updated June 23, 2026 at 6:22 PM EDT",0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,Low Snowfall,false,0,,,,,,,
+2026-11-04T19:14:42Z,2025-26,okemo,2026-06-23T22:24:00Z,"Updated June 23, 2026 at 6:24 PM EDT",0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,Low Snowfall,false,86,,,,,,,
+2026-11-04T19:14:42Z,2025-26,park-city,2026-06-23T22:24:00Z,"Updated June 23, 2026 at 4:24 PM MDT",0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,Low Snowfall,false,53,,,,,,,
+2026-11-04T19:14:42Z,2025-26,stevens-pass,2026-06-23T22:24:00Z,"Updated June 23, 2026 at 3:24 PM PDT",0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,,false,44,,,,,,,
+2026-11-04T19:14:42Z,2025-26,stowe,2026-06-23T22:21:00Z,"Updated June 23, 2026 at 6:21 PM EDT",0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,,false,85,,,,,,,
+2026-11-13T22:01:59Z,2025-26,attitash,2026-04-05T19:35:00Z,"Updated April 05, 2026 at 3:35 PM EDT",0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,Variable,false,0,"in,cm",,,,,,
+2026-11-13T22:01:59Z,2025-26,crotched,2026-06-23T22:22:00Z,"Updated June 23, 2026 at 6:22 PM EDT",0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,,false,1000,"in,cm",,,,,,
+2026-11-13T22:01:59Z,2025-26,hidden-valley-mo,2026-01-26T16:12:00Z,"Updated January 26, 2026 at 10:12 AM CST",36.0,91.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,Snow Groomed,false,1000,"in,cm",,,,,,
+2026-11-13T22:01:59Z,2025-26,hidden-valley-pa,2026-03-24T13:19:00Z,"Updated March 24, 2026 at 9:19 AM EDT",0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,,false,586,"in,cm",,,,,,
+2026-11-13T22:01:59Z,2025-26,laurel-mountain,2026-03-09T04:07:00Z,"Updated March 09, 2026 at 12:07 AM EDT",0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,,false,587,"in,cm",,,,,,
+2026-11-13T22:01:59Z,2025-26,liberty,2026-02-23T18:53:00Z,"Updated February 23, 2026 at 1:53 PM EST",0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,Powder,false,206,"in,cm",,,,,,
+2026-11-13T22:01:59Z,2025-26,mt-brighton,2026-03-04T20:10:00Z,"Updated March 04, 2026 at 3:10 PM EST",23.0,58.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,Snow Groomed,false,0,"in,cm",,,,,,
+2026-11-13T22:01:59Z,2025-26,paoli-peaks,2026-02-22T17:09:00Z,"Updated February 22, 2026 at 11:09 AM CST",28.0,71.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,Packed Powder,false,0,"in,cm",,,,,,
+2026-11-13T22:01:59Z,2025-26,roundtop,2026-03-19T12:39:00Z,"Updated March 19, 2026 at 8:39 AM EDT",26.0,66.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,Low Snowfall,false,0,"in,cm",,,,,,
+2026-11-13T22:01:59Z,2025-26,seven-springs,2026-06-23T22:23:00Z,"Updated June 23, 2026 at 6:23 PM EDT",0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,Low Snowfall,false,585,"in,cm",,,,,,
+2026-11-13T22:01:59Z,2025-26,snow-creek,2026-01-29T18:10:00Z,"Updated January 29, 2026 at 12:10 PM CST",42.0,106.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,Snow Groomed,false,0,"in,cm",,,,,,
+2026-11-13T22:01:59Z,2025-26,whitetail,2026-02-23T18:55:00Z,"Updated February 23, 2026 at 1:55 PM EST",36.0,91.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,Packed Powder,false,0,"in,cm",,,,,,
+2026-11-13T22:01:59Z,2025-26,wildcat,2026-06-23T22:24:00Z,"Updated June 23, 2026 at 6:24 PM EDT",0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,,false,44,"in,cm",,,,,,
+2026-11-13T22:01:59Z,2025-26,wilmot,2026-03-04T14:32:00Z,"Updated March 04, 2026 at 8:32 AM CST",14.0,35.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,Snow Groomed,false,0,"in,cm",,,,,,
