@@ -237,3 +237,5 @@ observed_at,season,resort_id,report_updated_utc,report_updated_text,base_depth_i
 2026-11-15T01:59:19Z,2026-27,ski-arlberg,,,0.0,0.0,,,,,,,,,,,,true,,cm,,0,,,,
 2026-11-15T01:59:19Z,2026-27,soelden,,,24.4,62.0,,,,,,,,,,,,true,,cm,,22,31,,,
 2026-11-15T01:59:19Z,2026-27,telluride,,"November 14, 2026 at 6:59pm",12.0,30.5,12.0,30.5,6.0,15.2,0.0,0.0,0.0,0.0,0.0,0.0,Variable,false,,in,,0,17,0,149,
+2026-11-15T09:37:23Z,2026-27,heavenly,2026-11-14T15:14:00Z,"Updated November 14, 2026 at 7:14 AM PST",4.0,10.0,22.0,55.0,0.0,0.0,8.0,20.0,8.0,20.0,8.0,20.0,Low Snowfall,false,50,"in,cm",,,,,,
+2026-11-15T09:37:23Z,2026-27,soelden,,,24.0,61.0,,,,,,,,,,,,true,,cm,,22,31,,,
